@@ -2539,6 +2539,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <input type="month" id="recordMes">
           </div>
         </div>
+        <button type="button" class="btn-secundario" id="btnExportarExcelRecord" style="margin-top:10px;">📥 Exportar Excel</button>
       </div>
 
       <div class="tabla-wrap">
@@ -5705,19 +5706,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return clasificarMotivoTexto(r.motivo);
   }
 
-  function renderRecordAsistencia() {
-    const recordMesEl = document.getElementById('recordMes');
-    const theadRecord = document.getElementById('theadRecord');
-    const cuerpoRecord = document.getElementById('cuerpoRecord');
-    const contadorRecord = document.getElementById('contadorRecord');
-    const valorMes = recordMesEl.value;
-
-    if (!valorMes) {
-      theadRecord.innerHTML = '';
-      cuerpoRecord.innerHTML = '<tr><td class="vacio">Selecciona un mes para ver el récord.</td></tr>';
-      contadorRecord.textContent = '';
-      return;
-    }
+  // Calcula la matriz del récord de asistencia de un mes (usado tanto por la vista en
+  // pantalla como por la exportación a Excel, para que ambas coincidan siempre).
+  function calcularRecordAsistencia(valorMes) {
+    if (!valorMes) return null;
 
     const partes = valorMes.split('-');
     const anio = parseInt(partes[0], 10);
@@ -5725,23 +5717,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const totalDias = diasEnMes(anio, mes);
 
     const registrosMes = asistencias.filter(function (r) { return (r.fecha || '').indexOf(valorMes) === 0; });
-
-    let filaSemana = '<tr><th rowspan="2" class="col-nombre">Ítems</th><th rowspan="2" class="col-nombre">Nombres y Apellidos</th><th rowspan="2">DNI</th><th rowspan="2">Cargo</th>';
-    let filaDias = '';
-    for (let d = 1; d <= totalDias; d++) {
-      const diaSemana = new Date(Date.UTC(anio, mes - 1, d)).getUTCDay();
-      const esFinde = (diaSemana === 0 || diaSemana === 6);
-      filaSemana += `<th class="dia-header-semana${esFinde ? ' dia-finde' : ''}">${NOMBRES_DIA_ABREV[diaSemana]}</th>`;
-      filaDias += `<th class="${esFinde ? 'dia-finde' : ''}">${d}</th>`;
-    }
-    filaSemana += '<th rowspan="2">Faltas</th><th rowspan="2">Justificadas</th><th rowspan="2">Tardanzas</th><th rowspan="2">Asistencias</th><th rowspan="2">% Asistencia</th></tr>';
-    theadRecord.innerHTML = filaSemana + '<tr>' + filaDias + '</tr>';
-
-    if (registrosMes.length === 0) {
-      cuerpoRecord.innerHTML = `<tr><td colspan="${9 + totalDias}" class="vacio">No hay registros de asistencia guardados para este mes.</td></tr>`;
-      contadorRecord.textContent = '0 personas con registros este mes';
-      return;
-    }
+    if (registrosMes.length === 0) return { anio: anio, mes: mes, totalDias: totalDias, ordenPersonas: [], personas: {} };
 
     const personas = {};
     const ordenPersonas = [];
@@ -5769,49 +5745,97 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     ordenPersonas.sort(function (a, b) { return personas[a].nombre.localeCompare(personas[b].nombre, 'es'); });
 
+    ordenPersonas.forEach(function (clave) {
+      const p = personas[clave];
+      const registroCoincidente = buscarRegistroPorNombre(p.nombre);
+      p.dni = registroCoincidente ? (registroCoincidente.dni || '') : '';
+
+      let faltas = 0, justificadas = 0, tardanzas = 0, asistenciasCount = 0;
+      for (let d = 1; d <= totalDias; d++) {
+        const info = p.dias[d];
+        if (!info) continue;
+        if (info.estado === 'presente') asistenciasCount++;
+        else if (info.estado === 'falta') faltas++;
+        else if (info.estado === 'justificada') justificadas++;
+        else if (info.estado === 'tardanza') tardanzas++;
+      }
+      const totalConsiderado = asistenciasCount + faltas + tardanzas;
+      p.faltas = faltas;
+      p.justificadas = justificadas;
+      p.tardanzas = tardanzas;
+      p.asistencias = asistenciasCount;
+      p.porcentaje = totalConsiderado > 0 ? Math.round((asistenciasCount / totalConsiderado) * 100) : 0;
+    });
+
+    return { anio: anio, mes: mes, totalDias: totalDias, ordenPersonas: ordenPersonas, personas: personas };
+  }
+
+  function renderRecordAsistencia() {
+    const recordMesEl = document.getElementById('recordMes');
+    const theadRecord = document.getElementById('theadRecord');
+    const cuerpoRecord = document.getElementById('cuerpoRecord');
+    const contadorRecord = document.getElementById('contadorRecord');
+    const valorMes = recordMesEl.value;
+
+    if (!valorMes) {
+      theadRecord.innerHTML = '';
+      cuerpoRecord.innerHTML = '<tr><td class="vacio">Selecciona un mes para ver el récord.</td></tr>';
+      contadorRecord.textContent = '';
+      return;
+    }
+
+    const datos = calcularRecordAsistencia(valorMes);
+    const { anio, mes, totalDias, ordenPersonas, personas } = datos;
+
+    let filaSemana = '<tr><th rowspan="2" class="col-nombre">Ítems</th><th rowspan="2" class="col-nombre">Nombres y Apellidos</th><th rowspan="2">DNI</th><th rowspan="2">Cargo</th>';
+    let filaDias = '';
+    for (let d = 1; d <= totalDias; d++) {
+      const diaSemana = new Date(Date.UTC(anio, mes - 1, d)).getUTCDay();
+      const esFinde = (diaSemana === 0 || diaSemana === 6);
+      filaSemana += `<th class="dia-header-semana${esFinde ? ' dia-finde' : ''}">${NOMBRES_DIA_ABREV[diaSemana]}</th>`;
+      filaDias += `<th class="${esFinde ? 'dia-finde' : ''}">${d}</th>`;
+    }
+    filaSemana += '<th rowspan="2">Faltas</th><th rowspan="2">Justificadas</th><th rowspan="2">Tardanzas</th><th rowspan="2">Asistencias</th><th rowspan="2">% Asistencia</th></tr>';
+    theadRecord.innerHTML = filaSemana + '<tr>' + filaDias + '</tr>';
+
+    if (ordenPersonas.length === 0) {
+      cuerpoRecord.innerHTML = `<tr><td colspan="${9 + totalDias}" class="vacio">No hay registros de asistencia guardados para este mes.</td></tr>`;
+      contadorRecord.textContent = '0 personas con registros este mes';
+      return;
+    }
+
     let filas = '';
     ordenPersonas.forEach(function (clave, i) {
       const p = personas[clave];
-      const registroCoincidente = buscarRegistroPorNombre(p.nombre);
-      const dni = registroCoincidente ? (registroCoincidente.dni || '') : '';
-
-      let faltas = 0, justificadas = 0, tardanzas = 0, asistenciasCount = 0;
       let celdas = '';
       for (let d = 1; d <= totalDias; d++) {
         const info = p.dias[d];
         if (!info) { celdas += '<td></td>'; continue; }
         if (info.estado === 'presente') {
-          asistenciasCount++;
           celdas += '<td class="celda-presente" title="Asistencia">✓</td>';
         } else if (info.estado === 'falta') {
-          faltas++;
           celdas += `<td class="celda-falta" title="${escaparHtml(info.motivo)}">F</td>`;
         } else if (info.estado === 'justificada') {
-          justificadas++;
           celdas += `<td class="celda-justificada" title="${escaparHtml(info.motivo)}">J</td>`;
         } else if (info.estado === 'tardanza') {
-          tardanzas++;
           celdas += `<td class="celda-tardanza" title="${escaparHtml(info.motivo)}">T</td>`;
         } else {
           celdas += '<td></td>';
         }
       }
 
-      const totalConsiderado = asistenciasCount + faltas + tardanzas;
-      const porcentaje = totalConsiderado > 0 ? Math.round((asistenciasCount / totalConsiderado) * 100) : 0;
-
       filas += `
         <tr>
           <td>${i + 1}</td>
           <td class="col-nombre">${escaparHtml(p.nombre)}</td>
-          <td>${escaparHtml(dni)}</td>
+          <td>${escaparHtml(p.dni)}</td>
           <td>${escaparHtml(p.puesto)}</td>
           ${celdas}
-          <td>${faltas}</td>
-          <td>${justificadas}</td>
-          <td>${tardanzas}</td>
-          <td>${asistenciasCount}</td>
-          <td>${porcentaje}%</td>
+          <td>${p.faltas}</td>
+          <td>${p.justificadas}</td>
+          <td>${p.tardanzas}</td>
+          <td>${p.asistencias}</td>
+          <td>${p.porcentaje}%</td>
         </tr>
       `;
     });
@@ -5821,6 +5845,205 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   document.getElementById('recordMes').addEventListener('change', renderRecordAsistencia);
+
+  /* ---- Exportar a Excel el récord de asistencia por persona del mes seleccionado, con diseño ---- */
+  async function exportarExcelRecordAsistencia() {
+    const valorMes = document.getElementById('recordMes').value;
+    if (!valorMes) {
+      alert('Selecciona un mes para exportar el récord.');
+      return;
+    }
+
+    const datos = calcularRecordAsistencia(valorMes);
+    if (!datos || datos.ordenPersonas.length === 0) {
+      alert('No hay registros de asistencia guardados para este mes.');
+      return;
+    }
+
+    const { anio, mes, totalDias, ordenPersonas, personas } = datos;
+    const NOMBRES_MES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const tituloMes = `${NOMBRES_MES[mes]} de ${anio}`;
+
+    const boton = document.getElementById('btnExportarExcelRecord');
+    const textoOriginalBoton = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = '⏳ Generando...';
+
+    try {
+      const libro = new ExcelJS.Workbook();
+      libro.creator = 'SEGSOL';
+      libro.created = new Date();
+
+      const hoja = libro.addWorksheet('Récord de asistencia', { views: [{ showGridLines: false }] });
+
+      // Columnas fijas: Ítems, Nombres y Apellidos, DNI, Cargo — luego un día por columna, luego resumen.
+      const NUM_COLS_FIJAS = 4;
+      const NUM_COLS_RESUMEN = 5;
+      const totalColumnas = NUM_COLS_FIJAS + totalDias + NUM_COLS_RESUMEN;
+
+      const columnas = [
+        { width: 6 }, { width: 28 }, { width: 12 }, { width: 20 }
+      ];
+      for (let d = 1; d <= totalDias; d++) columnas.push({ width: 3.3 });
+      columnas.push({ width: 9 }, { width: 12 }, { width: 11 }, { width: 12 }, { width: 13 });
+      hoja.columns = columnas;
+
+      function colLetra(n) {
+        let letra = '';
+        while (n > 0) {
+          const resto = (n - 1) % 26;
+          letra = String.fromCharCode(65 + resto) + letra;
+          n = Math.floor((n - 1) / 26);
+        }
+        return letra;
+      }
+      const ultimaColLetra = colLetra(totalColumnas);
+
+      // ---- Título ----
+      hoja.mergeCells(`A1:${ultimaColLetra}1`);
+      const filaTitulo = hoja.getCell('A1');
+      filaTitulo.value = `SEGSOL · Récord de Asistencia por Persona — ${tituloMes}`;
+      filaTitulo.font = { bold: true, size: 15, color: { argb: 'FFFFFFFF' } };
+      filaTitulo.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_EXCEL } };
+      filaTitulo.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      hoja.getRow(1).height = 30;
+
+      hoja.mergeCells(`A2:${ultimaColLetra}2`);
+      const filaSubtitulo = hoja.getCell('A2');
+      filaSubtitulo.value = `✓ = asistencia   ·   F = falta   ·   J = justificada   ·   T = tardanza   ·   Generado: ${formatearFecha(new Date().toISOString().slice(0, 10))}`;
+      filaSubtitulo.font = { italic: true, size: 10, color: { argb: 'FF4A4E69' } };
+      filaSubtitulo.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      hoja.getRow(2).height = 20;
+
+      // ---- Encabezado de la tabla (2 filas: nombre del día de semana + número de día) ----
+      const filaEncNum = 3;
+      const filaEncDia = 4;
+      const filaEnc1 = hoja.getRow(filaEncNum);
+      const filaEnc2 = hoja.getRow(filaEncDia);
+
+      hoja.mergeCells(`A${filaEncNum}:A${filaEncDia}`);
+      hoja.mergeCells(`B${filaEncNum}:B${filaEncDia}`);
+      hoja.mergeCells(`C${filaEncNum}:C${filaEncDia}`);
+      hoja.mergeCells(`D${filaEncNum}:D${filaEncDia}`);
+      filaEnc1.getCell(1).value = 'Ítems';
+      filaEnc1.getCell(2).value = 'Nombres y Apellidos';
+      filaEnc1.getCell(3).value = 'DNI';
+      filaEnc1.getCell(4).value = 'Cargo';
+
+      const diasFinde = [];
+      for (let d = 1; d <= totalDias; d++) {
+        const col = NUM_COLS_FIJAS + d;
+        const diaSemana = new Date(Date.UTC(anio, mes - 1, d)).getUTCDay();
+        const esFinde = (diaSemana === 0 || diaSemana === 6);
+        if (esFinde) diasFinde.push(d);
+        filaEnc1.getCell(col).value = NOMBRES_DIA_ABREV[diaSemana];
+        filaEnc2.getCell(col).value = d;
+      }
+
+      const colResumenInicio = NUM_COLS_FIJAS + totalDias + 1;
+      const etiquetasResumen = ['Faltas', 'Justificadas', 'Tardanzas', 'Asistencias', '% Asistencia'];
+      etiquetasResumen.forEach(function (etq, idx) {
+        const col = colResumenInicio + idx;
+        hoja.mergeCells(filaEncNum, col, filaEncDia, col);
+        filaEnc1.getCell(col).value = etq;
+      });
+
+      [filaEnc1, filaEnc2].forEach(function (fila) {
+        fila.eachCell({ includeEmpty: true }, function (celda, colNum) {
+          if (colNum > totalColumnas) return;
+          celda.font = { bold: true, size: 9.5, color: { argb: 'FFFFFFFF' } };
+          celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_EXCEL } };
+          celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+          celda.border = BORDES_CELDA;
+        });
+        fila.height = 20;
+      });
+      // Resaltar los días de fin de semana en el encabezado, igual que en pantalla.
+      diasFinde.forEach(function (d) {
+        const col = NUM_COLS_FIJAS + d;
+        [filaEnc1, filaEnc2].forEach(function (fila) {
+          const celda = fila.getCell(col);
+          celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCFE0EF' } };
+          celda.font = { bold: true, size: 9.5, color: { argb: AZUL_EXCEL } };
+        });
+      });
+
+      // ---- Filas de datos ----
+      const coloresEstado = {
+        presente: { texto: 'FF00A859', fondo: 'FFE3F5E6' },
+        falta: { texto: ROJO_EXCEL, fondo: ROJO_CLARO_EXCEL },
+        justificada: { texto: AMBAR_EXCEL, fondo: AMBAR_CLARO_EXCEL },
+        tardanza: { texto: AZUL_EXCEL, fondo: 'FFEAF1FB' }
+      };
+      const letrasEstado = { presente: '✓', falta: 'F', justificada: 'J', tardanza: 'T' };
+
+      ordenPersonas.forEach(function (clave, i) {
+        const p = personas[clave];
+        const filaNum = filaEncDia + 1 + i;
+        const fila = hoja.getRow(filaNum);
+        fila.getCell(1).value = i + 1;
+        fila.getCell(2).value = p.nombre;
+        fila.getCell(3).value = p.dni || '';
+        fila.getCell(4).value = p.puesto || '';
+
+        for (let d = 1; d <= totalDias; d++) {
+          const col = NUM_COLS_FIJAS + d;
+          const info = p.dias[d];
+          const celda = fila.getCell(col);
+          if (info && letrasEstado[info.estado]) {
+            celda.value = letrasEstado[info.estado];
+            const colores = coloresEstado[info.estado];
+            celda.font = { bold: true, size: 10, color: { argb: colores.texto } };
+            celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colores.fondo } };
+            if (info.motivo) celda.note = info.motivo;
+          } else if (diasFinde.indexOf(d) !== -1) {
+            celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F7FB' } };
+          }
+          celda.alignment = { vertical: 'middle', horizontal: 'center' };
+        }
+
+        fila.getCell(colResumenInicio).value = p.faltas;
+        fila.getCell(colResumenInicio + 1).value = p.justificadas;
+        fila.getCell(colResumenInicio + 2).value = p.tardanzas;
+        fila.getCell(colResumenInicio + 3).value = p.asistencias;
+        fila.getCell(colResumenInicio + 4).value = p.porcentaje / 100;
+        fila.getCell(colResumenInicio + 4).numFmt = '0%';
+
+        fila.eachCell({ includeEmpty: true }, function (celda, colNum) {
+          if (colNum > totalColumnas) return;
+          celda.border = BORDES_CELDA;
+          if (colNum === 1 || colNum === 3) celda.alignment = { vertical: 'middle', horizontal: 'center' };
+          else if (colNum === 2 || colNum === 4) celda.alignment = { vertical: 'middle', horizontal: 'left' };
+          if (colNum >= colResumenInicio) {
+            celda.font = celda.font && celda.font.bold ? celda.font : { bold: true, color: { argb: AZUL_EXCEL } };
+            celda.alignment = { vertical: 'middle', horizontal: 'center' };
+          }
+        });
+        fila.height = 18;
+      });
+
+      hoja.views = [{ state: 'frozen', xSplit: NUM_COLS_FIJAS, ySplit: filaEncDia, showGridLines: false }];
+
+      const buffer = await libro.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const enlace = document.createElement('a');
+      enlace.href = url;
+      enlace.download = `Record_Asistencia_${NOMBRES_MES[mes]}_${anio}.xlsx`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      document.body.removeChild(enlace);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Error generando el Excel del récord de asistencia:', e);
+      alert('Ocurrió un error generando el archivo de Excel. Intenta nuevamente.');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = textoOriginalBoton;
+    }
+  }
+
+  document.getElementById('btnExportarExcelRecord').addEventListener('click', exportarExcelRecordAsistencia);
 
   /* ---- Asistencia diaria (diagramada por placa/ruta + ausentes) ---- */
   function renderAsistenciaDiaria() {

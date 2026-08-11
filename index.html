@@ -1176,6 +1176,23 @@
   }
   .nav-usuario button:hover { background: rgba(255,255,255,0.22); }
 
+  /* ---- Estado de sincronización en la nube (Firebase) ---- */
+  .badge-sync {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255,255,255,0.12);
+    color: #fff;
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .badge-sync.sync-ok { background: rgba(46, 204, 113, 0.25); color: #eafff2; }
+  .badge-sync.sync-error { background: rgba(231, 76, 60, 0.3); color: #ffecea; }
+  .badge-sync.sync-cargando { background: rgba(255,255,255,0.12); color: #f1f6fb; }
+
   /* ---- Administración de usuarios ---- */
   .lista-permisos-admin { display: flex; flex-wrap: wrap; gap: 10px 18px; }
   .lista-permisos-admin label {
@@ -1905,6 +1922,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <button type="button" class="nav-btn" data-vista="epp">🦺 Kardex de EPP</button>
   <button type="button" class="nav-btn" data-vista="admin" id="navBtnAdmin" style="display:none">🔑 Administración</button>
   <div class="nav-usuario" id="navUsuario">
+    <span class="badge-sync sync-cargando" id="badgeSyncFirestore" title="Estado de la sincronización en la nube con las demás computadoras">⏳ Conectando…</span>
     <span class="nombre-usuario-activo" id="nombreUsuarioActivo"></span>
     <button type="button" id="btnCerrarSesion">Cerrar sesión</button>
   </div>
@@ -3817,6 +3835,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 //# sourceMappingURL=chart.umd.min.js.map
 </script>
 
+<!-- Firebase (sincronización en tiempo real entre computadoras) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+
 <script>
 (function () {
   /* ===================================================================
@@ -3864,6 +3887,120 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     storageDisponible = false;
     avisoStorage.style.display = 'block';
     avisoStorage.textContent = 'Atención: este navegador no permite guardar datos de forma permanente en este archivo (almacenamiento local bloqueado). La información SÍ se mostrará mientras la página esté abierta, pero se perderá al cerrar o recargar. Usa los botones "Exportar JSON" antes de cerrar para no perder tu información.';
+  }
+
+  /* ===================================================================
+     SINCRONIZACIÓN EN LA NUBE (Firebase / Firestore)
+     Cada módulo de datos (Registro de Personal, Asistencia, Caja, Mapa,
+     Liquidaciones, Descuentos, EPP, Usuarios, etc.) se guarda en un
+     documento de Firestore además de en localStorage. Cuando alguien
+     registra o edita algo desde otra computadora, esta pestaña lo recibe
+     en vivo (sin recargar la página) gracias a onSnapshot. localStorage
+     sigue funcionando como respaldo local y modo sin conexión: si no hay
+     internet, la app sigue funcionando con los últimos datos conocidos y
+     se pone al día en cuanto vuelve la conexión.
+  =================================================================== */
+  const firebaseConfig = {
+    apiKey: "AIzaSyCZ8DALWAL5KlPf4TRT6Jh889rONewFSTs",
+    authDomain: "segsol-3b6b4.firebaseapp.com",
+    projectId: "segsol-3b6b4",
+    storageBucket: "segsol-3b6b4.firebasestorage.app",
+    messagingSenderId: "257345612074",
+    appId: "1:257345612074:web:49a11da1c0eb7ec0aad653"
+  };
+
+  let nubeDisponible = typeof firebase !== 'undefined';
+  let dbNube = null;
+  let nubeAutenticada = false;
+  const registrosSincronizacion = []; // { nombreDoc, obtenerValor, fijarValor, alRecibirCambio }
+  let aplicandoCambioRemoto = false; // true mientras se aplica un cambio que llegó de otra computadora
+
+  const badgeSync = document.getElementById('badgeSyncFirestore');
+
+  function actualizarBadgeSync(estado, texto) {
+    if (!badgeSync) return;
+    badgeSync.classList.remove('sync-ok', 'sync-error', 'sync-cargando');
+    badgeSync.classList.add(estado);
+    badgeSync.textContent = texto;
+  }
+
+  // Cada módulo llama a esto una vez para quedar sincronizado con la nube.
+  // claveLocalStorage se usa para refrescar también el respaldo local (localStorage)
+  // cuando llega un cambio remoto, para que el modo sin conexión no se quede desactualizado.
+  function registrarSincronizacion(nombreDoc, claveLocalStorage, obtenerValor, fijarValor, alRecibirCambio) {
+    registrosSincronizacion.push({
+      nombreDoc: nombreDoc,
+      claveLocalStorage: claveLocalStorage,
+      obtenerValor: obtenerValor,
+      fijarValor: fijarValor,
+      alRecibirCambio: alRecibirCambio
+    });
+  }
+
+  // Cada guardarX() llama a esto (además de guardar en localStorage) para que las demás computadoras reciban el cambio.
+  function guardarEnNube(nombreDoc, valor) {
+    if (!nubeDisponible || !dbNube || !nubeAutenticada || aplicandoCambioRemoto) return;
+    dbNube.collection('segsol').doc(nombreDoc).set({
+      data: valor,
+      actualizado: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(function (err) {
+      console.error('No se pudo guardar en la nube (' + nombreDoc + '):', err);
+      actualizarBadgeSync('sync-error', '⚠️ Sin conexión con la nube');
+    });
+  }
+
+  function activarEscuchasNube() {
+    registrosSincronizacion.forEach(function (r) {
+      dbNube.collection('segsol').doc(r.nombreDoc).onSnapshot(function (snap) {
+        if (!snap.exists) return;
+        const contenido = snap.data();
+        if (!contenido || typeof contenido.data === 'undefined') return;
+        aplicandoCambioRemoto = true;
+        try {
+          r.fijarValor(contenido.data);
+          if (r.claveLocalStorage) {
+            try { localStorage.setItem(r.claveLocalStorage, JSON.stringify(contenido.data)); } catch (e) { /* almacenamiento local no disponible: seguimos solo en memoria */ }
+          }
+          if (typeof r.alRecibirCambio === 'function') r.alRecibirCambio();
+        } catch (e) {
+          console.error('Error aplicando cambio recibido de la nube (' + r.nombreDoc + '):', e);
+        } finally {
+          aplicandoCambioRemoto = false;
+        }
+      }, function (err) {
+        console.error('Error escuchando cambios de "' + r.nombreDoc + '":', err);
+        actualizarBadgeSync('sync-error', '⚠️ Sin conexión con la nube');
+      });
+    });
+  }
+
+  function iniciarSincronizacionNube() {
+    if (!nubeDisponible) {
+      actualizarBadgeSync('sync-error', '⚠️ Sincronización en la nube no disponible en este navegador');
+      return;
+    }
+    try {
+      firebase.initializeApp(firebaseConfig);
+      dbNube = firebase.firestore();
+    } catch (e) {
+      console.error('No se pudo inicializar Firebase:', e);
+      nubeDisponible = false;
+      actualizarBadgeSync('sync-error', '⚠️ Sincronización en la nube no disponible');
+      return;
+    }
+
+    firebase.auth().onAuthStateChanged(function (user) {
+      if (user && !nubeAutenticada) {
+        nubeAutenticada = true;
+        actualizarBadgeSync('sync-ok', '☁️ Sincronizado');
+        activarEscuchasNube();
+      }
+    });
+
+    firebase.auth().signInAnonymously().catch(function (err) {
+      console.error('No se pudo autenticar con Firebase:', err);
+      actualizarBadgeSync('sync-error', '⚠️ Sin conexión con la nube (trabajando solo en este dispositivo)');
+    });
   }
 
   function escaparHtml(texto) {
@@ -4033,6 +4170,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       mostrarAvisoStorage();
     }
+    guardarEnNube('usuarios', usuarios);
   }
 
   function buscarUsuario(nombre) {
@@ -4305,6 +4443,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       if (storageDisponible) mostrarAvisoStorage();
     }
+    guardarEnNube('registros', registros);
   }
 
   function renderTabla(filtro) {
@@ -4802,6 +4941,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       if (storageDisponible) mostrarAvisoStorage();
     }
+    guardarEnNube('postulantes', postulantes);
   }
 
   function renderTablaPostulantes(filtro) {
@@ -5151,6 +5291,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       if (storageDisponible) mostrarAvisoStorage();
     }
+    guardarEnNube('asistencias', asistencias);
   }
 
   /* ---- Buscar personal (nombre libre + lista de Registro de Personal) ---- */
@@ -6409,6 +6550,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       if (storageDisponible) mostrarAvisoStorage();
     }
+    guardarEnNube('caja', cajaMovimientos);
   }
 
   function formatearMoneda(n) {
@@ -6973,6 +7115,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       if (storageDisponible) mostrarAvisoStorage();
     }
+    guardarEnNube('mapa', mapaClientes);
   }
 
   function renderTablaMapa(filtro) {
@@ -7449,6 +7592,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       if (storageDisponible) mostrarAvisoStorage();
     }
+    guardarEnNube('avanceRD', avanceRD);
   }
   function cargarAvanceHR() {
     try {
@@ -7465,6 +7609,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       if (storageDisponible) mostrarAvisoStorage();
     }
+    guardarEnNube('avanceHR', avanceHR);
   }
 
   function formatearHl(n) { return (n || 0).toFixed(2) + ' hl'; }
@@ -8181,6 +8326,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       mostrarAvisoStorage();
     }
+    guardarEnNube('liquidaciones', liquidaciones);
   }
 
   function formatearDiferencia(n) {
@@ -8636,6 +8782,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       mostrarAvisoStorage();
     }
+    guardarEnNube('descuentosProductos', catalogoDescuentos);
   }
 
   function cargarDescuentos() {
@@ -8654,6 +8801,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       mostrarAvisoStorage();
     }
+    guardarEnNube('descuentos', descuentosPersonal);
   }
 
   /* ---- Catálogo de productos para descuento ---- */
@@ -9100,6 +9248,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       mostrarAvisoStorage();
     }
+    guardarEnNube('epp', entregasEpp);
   }
 
   function poblarSelectItemsEpp() {
@@ -9343,6 +9492,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       mostrarAvisoStorage();
     }
+    guardarEnNube('eppStock', ingresosEpp);
   }
 
   function cargarMinimosEpp() {
@@ -9361,6 +9511,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     } catch (e) {
       mostrarAvisoStorage();
     }
+    guardarEnNube('eppMinimos', stockMinimoEpp);
   }
 
   function poblarSelectItemStock() {
@@ -9584,6 +9735,115 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   document.getElementById('diarioFecha').value = fechaActualStr;
 
   mostrarVista('inicio');
+
+  /* ===================================================================
+     SINCRONIZACIÓN EN LA NUBE: un registro por cada módulo de datos, para
+     que los cambios hechos en otra computadora se reflejen aquí en vivo.
+  =================================================================== */
+  function valorBuscador(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : '';
+  }
+
+  registrarSincronizacion('usuarios', CLAVE_USUARIOS,
+    function () { return usuarios; },
+    function (v) { usuarios = v || []; },
+    function () {
+      renderTablaUsuarios();
+      if (usuarioActivo) {
+        const actualizado = buscarUsuario(usuarioActivo.usuario);
+        if (actualizado) {
+          usuarioActivo = actualizado;
+          document.getElementById('nombreUsuarioActivo').innerHTML =
+            escaparHtml(actualizado.usuario) + (actualizado.esAdmin ? ' <span class="badge-admin-nav">ADMIN</span>' : '');
+          aplicarPermisosUI();
+        }
+      }
+    }
+  );
+
+  registrarSincronizacion('registros', CLAVE_REGISTRO,
+    function () { return registros; },
+    function (v) { registros = v || []; },
+    function () { renderTabla(valorBuscador('buscador')); }
+  );
+
+  registrarSincronizacion('postulantes', CLAVE_POSTULANTES,
+    function () { return postulantes; },
+    function (v) { postulantes = v || []; },
+    function () { renderTablaPostulantes(valorBuscador('buscadorPostulantes')); }
+  );
+
+  registrarSincronizacion('asistencias', CLAVE_ASISTENCIA,
+    function () { return asistencias; },
+    function (v) { asistencias = v || []; },
+    function () { renderTablaAsistencia(valorBuscador('buscadorAsistencia')); }
+  );
+
+  registrarSincronizacion('caja', CLAVE_CAJA,
+    function () { return cajaMovimientos; },
+    function (v) { cajaMovimientos = v || []; },
+    function () {
+      renderTablaIngresosCaja(valorBuscador('buscadorIngresosCaja'));
+      renderTablaEgresosCaja(valorBuscador('buscadorEgresosCaja'));
+    }
+  );
+
+  registrarSincronizacion('mapa', CLAVE_MAPA,
+    function () { return mapaClientes; },
+    function (v) { mapaClientes = v || []; },
+    function () { renderTablaMapa(valorBuscador('buscadorMapa')); poblarFiltrosMapa(); }
+  );
+
+  registrarSincronizacion('avanceRD', CLAVE_AVANCE_RD,
+    function () { return avanceRD; },
+    function (v) { avanceRD = v || []; },
+    function () { actualizarInfoImportacionAvance(); poblarFiltroRutaAvance(); }
+  );
+
+  registrarSincronizacion('avanceHR', CLAVE_AVANCE_HR,
+    function () { return avanceHR; },
+    function (v) { avanceHR = v || []; },
+    function () { actualizarInfoImportacionAvance(); poblarFiltroRutaAvance(); }
+  );
+
+  registrarSincronizacion('liquidaciones', CLAVE_LIQUIDACIONES,
+    function () { return liquidaciones; },
+    function (v) { liquidaciones = v || []; },
+    function () { renderTablaLiquidaciones(valorBuscador('buscadorLiquidaciones')); }
+  );
+
+  registrarSincronizacion('descuentosProductos', CLAVE_DESC_PRODUCTOS,
+    function () { return catalogoDescuentos; },
+    function (v) { catalogoDescuentos = v || []; },
+    function () { renderCatalogoDescuentos(valorBuscador('buscadorCatalogoDescuentos')); actualizarValorTotalDescuento(); }
+  );
+
+  registrarSincronizacion('descuentos', CLAVE_DESCUENTOS,
+    function () { return descuentosPersonal; },
+    function (v) { descuentosPersonal = v || []; },
+    function () { renderTablaDescuentos(valorBuscador('buscadorDescuentos')); }
+  );
+
+  registrarSincronizacion('epp', CLAVE_EPP,
+    function () { return entregasEpp; },
+    function (v) { entregasEpp = v || []; },
+    function () { renderTablaEpp(valorBuscador('buscadorEpp')); actualizarSelectHistorialEpp(); }
+  );
+
+  registrarSincronizacion('eppStock', CLAVE_EPP_STOCK,
+    function () { return ingresosEpp; },
+    function (v) { ingresosEpp = v || []; },
+    function () { renderResumenStockEpp(); renderTablaStockEpp(valorBuscador('buscadorStockEpp')); }
+  );
+
+  registrarSincronizacion('eppMinimos', CLAVE_EPP_MINIMOS,
+    function () { return stockMinimoEpp; },
+    function (v) { stockMinimoEpp = v || {}; },
+    function () { renderResumenStockEpp(); }
+  );
+
+  iniciarSincronizacionNube();
 })();
 </script>
 

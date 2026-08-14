@@ -429,6 +429,8 @@
     letter-spacing: 0.02em;
   }
   .dia-finde { background: #cfe0ef !important; color: var(--azul); }
+  .dia-domingo-tareo { background: var(--rojo) !important; color: #fff !important; }
+  table.tabla-record td.celda-placa-tareo { font-weight: 700; }
   .celda-presente { color: var(--verde); font-weight: 700; }
   .celda-falta { background: #fdecea; color: var(--rojo); font-weight: 700; }
   .celda-justificada { background: #fdf3d8; color: #8a6d00; font-weight: 700; }
@@ -2395,6 +2397,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <button type="button" class="subnav-btn activo" data-subvista="basedatos">📋 Base de datos</button>
       <button type="button" class="subnav-btn" data-subvista="diario">📄 Asistencia diaria</button>
       <button type="button" class="subnav-btn" data-subvista="record">🗓️ Récord de asistencia por persona</button>
+      <button type="button" class="subnav-btn" data-subvista="tareo">🚚 Tareo por Placa</button>
       <button type="button" class="subnav-btn" data-subvista="historial">🔍 Historial por colaborador</button>
       <button type="button" class="subnav-btn" data-subvista="dashboard">📊 Dashboard de Inasistencias</button>
       <button type="button" class="subnav-btn" data-subvista="panelvisual">📈 Panel de Indicadores</button>
@@ -2550,6 +2553,34 @@ svg.leaflet-image-layer.leaflet-interactive path {
       </div>
 
       <p class="contador" id="contadorRecord"></p>
+    </div>
+
+    <!-- ---- Sub-vista: Tareo por Placa (tripulaciones por camión/placa, día a día) ---- -->
+    <div id="subvistaTareoAsistencia" style="display:none">
+      <div class="panel">
+        <h2>Tareo por Placa</h2>
+        <p class="ayuda-guardar" style="margin:0 0 12px 0;">Muestra con qué placa salió cada colaborador cada día del mes, coloreada por placa para ver de un vistazo cómo están armadas las tripulaciones. Todo se calcula a partir de la base de datos de Asistencia diaria.</p>
+        <div class="fila-cabecera-asistencia">
+          <div class="campo">
+            <label for="tareoMes">Mes</label>
+            <input type="month" id="tareoMes">
+          </div>
+          <div class="campo">
+            <label for="tareoServicio">Servicio (opcional)</label>
+            <input type="text" id="tareoServicio" placeholder="Ej: DISTRIBUCION">
+          </div>
+        </div>
+        <button type="button" class="btn-secundario" id="btnExportarExcelTareo" style="margin-top:10px;">📥 Exportar Excel</button>
+      </div>
+
+      <div class="tabla-wrap">
+        <table class="tabla-record" id="tablaTareo">
+          <thead id="theadTareo"></thead>
+          <tbody id="cuerpoTareo"></tbody>
+        </table>
+      </div>
+
+      <p class="contador" id="contadorTareo"></p>
     </div>
 
     <!-- ---- Sub-vista: Historial por colaborador ---- -->
@@ -4115,6 +4146,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const subVistaActiva = document.querySelector('#vistaAsistencia .subnav-btn.activo');
       const subVistaNombre = subVistaActiva ? subVistaActiva.getAttribute('data-subvista') : null;
       if (subVistaNombre === 'record') renderRecordAsistencia();
+      if (subVistaNombre === 'tareo') renderTareoPlaca();
       if (subVistaNombre === 'diario') renderAsistenciaDiaria();
       if (subVistaNombre === 'historial') {
         actualizarSelectHistorial();
@@ -6045,6 +6077,335 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   document.getElementById('btnExportarExcelRecord').addEventListener('click', exportarExcelRecordAsistencia);
 
+  /* ===================================================================
+     TAREO POR PLACA: cómo están armadas las tripulaciones por camión/placa,
+     día a día, coloreado por placa. Todo sale de la base de datos de
+     Asistencia diaria (asistencias, solo registros de tipo "Asistencia").
+  =================================================================== */
+  const MESES_ABREV_TAREO = ['', 'ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+  function clasificarTipoDocumento(valorDni) {
+    const valor = (valorDni || '').trim();
+    if (!valor) return '';
+    return /^\d{8}$/.test(valor) ? 'DNI' : 'CE';
+  }
+
+  // ---- Generación de colores distintos por placa (una placa siempre recibe el mismo color
+  // dentro de un mismo tareo). Se parte de una paleta categórica de 8 tonos y, si hay más
+  // placas que colores base, se extiende girando el matiz en ángulo dorado para que los
+  // colores adicionales sigan siendo visualmente distintos entre sí. ----
+  const HUES_BASE_PLACA = [214, 16, 160, 40, 337, 118, 253, 3]; // azul, naranja, aqua, amarillo, magenta, verde, violeta, rojo (en grados de matiz)
+
+  function hslAHex(h, s, l) {
+    h = ((h % 360) + 360) % 360;
+    s = Math.max(0, Math.min(100, s)) / 100;
+    l = Math.max(0, Math.min(100, l)) / 100;
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+    if (h < 60) { r = c; g = x; b = 0; }
+    else if (h < 120) { r = x; g = c; b = 0; }
+    else if (h < 180) { r = 0; g = c; b = x; }
+    else if (h < 240) { r = 0; g = x; b = c; }
+    else if (h < 300) { r = x; g = 0; b = c; }
+    else { r = c; g = 0; b = x; }
+    const canal = function (v) { return Math.round((v + m) * 255).toString(16).padStart(2, '0').toUpperCase(); };
+    return canal(r) + canal(g) + canal(b);
+  }
+
+  function generarColorPlaca(indice) {
+    const h = indice < HUES_BASE_PLACA.length ? HUES_BASE_PLACA[indice] : (indice * 137.508) % 360;
+    const s = 62;
+    const fondoHex = hslAHex(h, s, 83);
+    const textoHex = hslAHex(h, Math.min(s + 12, 85), 27);
+    return { fondoCss: '#' + fondoHex, textoCss: '#' + textoHex, fondoArgb: 'FF' + fondoHex, textoArgb: 'FF' + textoHex };
+  }
+
+  // Calcula la matriz del tareo por placa de un mes (usado tanto por la vista en pantalla
+  // como por la exportación a Excel, para que ambas coincidan siempre).
+  function calcularTareoPorPlaca(valorMes) {
+    if (!valorMes) return null;
+
+    const partes = valorMes.split('-');
+    const anio = parseInt(partes[0], 10);
+    const mes = parseInt(partes[1], 10);
+    const totalDias = diasEnMes(anio, mes);
+
+    const registrosMes = asistencias.filter(function (r) {
+      return (r.fecha || '').indexOf(valorMes) === 0 && (r.tipo || 'Asistencia') === 'Asistencia';
+    });
+    if (registrosMes.length === 0) return { anio: anio, mes: mes, totalDias: totalDias, ordenPersonas: [], personas: {}, mapaColoresPlaca: {} };
+
+    const personas = {};
+    const ordenPersonas = [];
+    const placasVistas = {};
+    const ordenPlacas = [];
+
+    registrosMes.forEach(function (r) {
+      const clave = (r.nombre || '').trim().toLowerCase();
+      if (!clave) return;
+      if (!personas[clave]) {
+        personas[clave] = { nombre: r.nombre, puesto: r.puesto || '', dias: {} };
+        ordenPersonas.push(clave);
+      }
+      if (r.puesto) personas[clave].puesto = r.puesto;
+
+      const partesFecha = (r.fecha || '').split('-');
+      const diaNum = parseInt(partesFecha[2], 10);
+      if (!diaNum) return;
+
+      const placa = (r.placa || '').trim();
+      personas[clave].dias[diaNum] = placa;
+      if (placa) {
+        const clavePlaca = placa.toLowerCase();
+        if (!placasVistas[clavePlaca]) { placasVistas[clavePlaca] = placa; ordenPlacas.push(clavePlaca); }
+      }
+    });
+
+    ordenPersonas.sort(function (a, b) { return personas[a].nombre.localeCompare(personas[b].nombre, 'es'); });
+    ordenPlacas.sort(function (a, b) { return placasVistas[a].localeCompare(placasVistas[b], 'es'); });
+
+    ordenPersonas.forEach(function (clave) {
+      const p = personas[clave];
+      const registroCoincidente = buscarRegistroPorNombre(p.nombre);
+      p.dni = registroCoincidente ? (registroCoincidente.dni || '') : '';
+      p.tipoDoc = clasificarTipoDocumento(p.dni);
+    });
+
+    const mapaColoresPlaca = {};
+    ordenPlacas.forEach(function (clavePlaca, idx) {
+      mapaColoresPlaca[clavePlaca] = generarColorPlaca(idx);
+    });
+
+    return { anio: anio, mes: mes, totalDias: totalDias, ordenPersonas: ordenPersonas, personas: personas, mapaColoresPlaca: mapaColoresPlaca };
+  }
+
+  function renderTareoPlaca() {
+    const tareoMesEl = document.getElementById('tareoMes');
+    const theadTareo = document.getElementById('theadTareo');
+    const cuerpoTareo = document.getElementById('cuerpoTareo');
+    const contadorTareo = document.getElementById('contadorTareo');
+    const valorMes = tareoMesEl.value;
+
+    if (!valorMes) {
+      theadTareo.innerHTML = '';
+      cuerpoTareo.innerHTML = '<tr><td class="vacio">Selecciona un mes para ver el tareo.</td></tr>';
+      contadorTareo.textContent = '';
+      return;
+    }
+
+    const datos = calcularTareoPorPlaca(valorMes);
+    const { anio, mes, totalDias, ordenPersonas, personas, mapaColoresPlaca } = datos;
+    const servicio = document.getElementById('tareoServicio').value.trim();
+
+    let filaSemana = '<tr><th rowspan="2" class="col-nombre">Apellidos y Nombres</th><th rowspan="2">T.D</th><th rowspan="2">N° Doc.</th><th rowspan="2">Servicio</th><th rowspan="2">Puesto</th>';
+    let filaDias = '';
+    for (let d = 1; d <= totalDias; d++) {
+      const diaSemana = new Date(Date.UTC(anio, mes - 1, d)).getUTCDay();
+      const esDomingo = diaSemana === 0;
+      filaSemana += `<th class="dia-header-semana${esDomingo ? ' dia-domingo-tareo' : ''}">${d}-${MESES_ABREV_TAREO[mes]}</th>`;
+      filaDias += `<th class="${esDomingo ? 'dia-domingo-tareo' : ''}">${NOMBRES_DIA_ABREV[diaSemana]}</th>`;
+    }
+    filaSemana += '</tr>';
+    theadTareo.innerHTML = filaSemana + '<tr>' + filaDias + '</tr>';
+
+    if (ordenPersonas.length === 0) {
+      cuerpoTareo.innerHTML = `<tr><td colspan="${5 + totalDias}" class="vacio">No hay registros de asistencia guardados para este mes.</td></tr>`;
+      contadorTareo.textContent = '0 personas con registros este mes';
+      return;
+    }
+
+    let filas = '';
+    ordenPersonas.forEach(function (clave) {
+      const p = personas[clave];
+      let celdas = '';
+      for (let d = 1; d <= totalDias; d++) {
+        const placa = p.dias[d];
+        if (!placa) { celdas += '<td></td>'; continue; }
+        const clavePlaca = placa.toLowerCase();
+        const color = mapaColoresPlaca[clavePlaca];
+        celdas += `<td class="celda-placa-tareo" style="background:${color.fondoCss};color:${color.textoCss};">${escaparHtml(placa)}</td>`;
+      }
+
+      filas += `
+        <tr>
+          <td class="col-nombre">${escaparHtml(p.nombre)}</td>
+          <td>${escaparHtml(p.tipoDoc)}</td>
+          <td>${escaparHtml(p.dni)}</td>
+          <td>${escaparHtml(servicio)}</td>
+          <td>${escaparHtml(p.puesto)}</td>
+          ${celdas}
+        </tr>
+      `;
+    });
+
+    cuerpoTareo.innerHTML = filas;
+    contadorTareo.textContent = `${ordenPersonas.length} persona(s) con registros este mes`;
+  }
+
+  document.getElementById('tareoMes').addEventListener('change', renderTareoPlaca);
+  document.getElementById('tareoServicio').addEventListener('input', renderTareoPlaca);
+
+  /* ---- Exportar a Excel el tareo por placa del mes seleccionado, con diseño ---- */
+  async function exportarExcelTareoPlaca() {
+    const valorMes = document.getElementById('tareoMes').value;
+    if (!valorMes) {
+      alert('Selecciona un mes para exportar el tareo.');
+      return;
+    }
+
+    const datos = calcularTareoPorPlaca(valorMes);
+    if (!datos || datos.ordenPersonas.length === 0) {
+      alert('No hay registros de asistencia guardados para este mes.');
+      return;
+    }
+
+    const { anio, mes, totalDias, ordenPersonas, personas, mapaColoresPlaca } = datos;
+    const servicio = document.getElementById('tareoServicio').value.trim();
+    const NOMBRES_MES_TAREO = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    const tituloMes = `${NOMBRES_MES_TAREO[mes]} de ${anio}`;
+
+    const boton = document.getElementById('btnExportarExcelTareo');
+    const textoOriginalBoton = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = '⏳ Generando...';
+
+    try {
+      const libro = new ExcelJS.Workbook();
+      libro.creator = 'SEGSOL';
+      libro.created = new Date();
+
+      const hoja = libro.addWorksheet('Tareo por Placa', { views: [{ showGridLines: false }] });
+
+      const NUM_COLS_FIJAS = 5; // Apellidos y Nombres, T.D, N° Doc, Servicio, Puesto
+      const totalColumnas = NUM_COLS_FIJAS + totalDias;
+
+      const columnas = [{ width: 30 }, { width: 8 }, { width: 13 }, { width: 16 }, { width: 14 }];
+      for (let d = 1; d <= totalDias; d++) columnas.push({ width: 9 });
+      hoja.columns = columnas;
+
+      function colLetra(n) {
+        let letra = '';
+        while (n > 0) {
+          const resto = (n - 1) % 26;
+          letra = String.fromCharCode(65 + resto) + letra;
+          n = Math.floor((n - 1) / 26);
+        }
+        return letra;
+      }
+      const ultimaColLetra = colLetra(totalColumnas);
+
+      // ---- Título ----
+      hoja.mergeCells(`A1:${ultimaColLetra}1`);
+      const filaTitulo = hoja.getCell('A1');
+      filaTitulo.value = `SEGSOL · Tareo por Placa — ${tituloMes}`;
+      filaTitulo.font = { bold: true, size: 15, color: { argb: 'FFFFFFFF' } };
+      filaTitulo.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_EXCEL } };
+      filaTitulo.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      hoja.getRow(1).height = 30;
+
+      hoja.mergeCells(`A2:${ultimaColLetra}2`);
+      const filaSubtitulo = hoja.getCell('A2');
+      filaSubtitulo.value = `Muestra con qué placa salió cada colaborador cada día — el color agrupa a quienes compartieron placa.   ·   Generado: ${formatearFecha(new Date().toISOString().slice(0, 10))}`;
+      filaSubtitulo.font = { italic: true, size: 10, color: { argb: 'FF4A4E69' } };
+      filaSubtitulo.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
+      hoja.getRow(2).height = 20;
+
+      // ---- Encabezado de la tabla ----
+      const filaEncNum = 3;
+      const filaEnc1 = hoja.getRow(filaEncNum);
+
+      hoja.mergeCells(`A${filaEncNum}:A${filaEncNum}`);
+      filaEnc1.getCell(1).value = 'Apellidos y Nombres';
+      filaEnc1.getCell(2).value = 'T.D';
+      filaEnc1.getCell(3).value = 'N° Doc.';
+      filaEnc1.getCell(4).value = 'Servicio';
+      filaEnc1.getCell(5).value = 'Puesto';
+
+      const diasDomingo = [];
+      for (let d = 1; d <= totalDias; d++) {
+        const col = NUM_COLS_FIJAS + d;
+        const diaSemana = new Date(Date.UTC(anio, mes - 1, d)).getUTCDay();
+        if (diaSemana === 0) diasDomingo.push(d);
+        const celda = filaEnc1.getCell(col);
+        celda.value = `${d}-${MESES_ABREV_TAREO[mes]}\n${NOMBRES_DIA_ABREV[diaSemana].toUpperCase()}`;
+        celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true, textRotation: diaSemana === 0 || diaSemana === 6 ? 0 : 0 };
+      }
+
+      filaEnc1.eachCell({ includeEmpty: true }, function (celda, colNum) {
+        if (colNum > totalColumnas) return;
+        celda.font = { bold: true, size: 9.5, color: { argb: 'FFFFFFFF' } };
+        celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_EXCEL } };
+        celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        celda.border = BORDES_CELDA;
+      });
+      filaEnc1.height = 32;
+
+      // Los domingos se resaltan en rojo, igual que en pantalla (los sábados quedan normales).
+      diasDomingo.forEach(function (d) {
+        const col = NUM_COLS_FIJAS + d;
+        const celda = filaEnc1.getCell(col);
+        celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: ROJO_EXCEL } };
+        celda.font = { bold: true, size: 9.5, color: { argb: 'FFFFFFFF' } };
+      });
+
+      // ---- Filas de datos ----
+      ordenPersonas.forEach(function (clave, i) {
+        const p = personas[clave];
+        const filaNum = filaEncNum + 1 + i;
+        const fila = hoja.getRow(filaNum);
+        fila.getCell(1).value = p.nombre;
+        fila.getCell(2).value = p.tipoDoc || '';
+        fila.getCell(3).value = p.dni || '';
+        fila.getCell(4).value = servicio;
+        fila.getCell(5).value = p.puesto || '';
+
+        for (let d = 1; d <= totalDias; d++) {
+          const col = NUM_COLS_FIJAS + d;
+          const placa = p.dias[d];
+          const celda = fila.getCell(col);
+          if (placa) {
+            const color = mapaColoresPlaca[placa.toLowerCase()];
+            celda.value = placa;
+            celda.font = { bold: true, size: 9.5, color: { argb: color.textoArgb } };
+            celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color.fondoArgb } };
+          }
+          celda.alignment = { vertical: 'middle', horizontal: 'center' };
+        }
+
+        fila.eachCell({ includeEmpty: true }, function (celda, colNum) {
+          if (colNum > totalColumnas) return;
+          celda.border = BORDES_CELDA;
+          if (colNum === 1) celda.alignment = { vertical: 'middle', horizontal: 'left' };
+          else if (colNum > 1 && colNum <= NUM_COLS_FIJAS) celda.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+        fila.height = 18;
+      });
+
+      hoja.views = [{ state: 'frozen', xSplit: NUM_COLS_FIJAS, ySplit: filaEncNum, showGridLines: false }];
+
+      const buffer = await libro.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const enlace = document.createElement('a');
+      enlace.href = url;
+      enlace.download = `Tareo_Placa_${NOMBRES_MES_TAREO[mes]}_${anio}.xlsx`;
+      document.body.appendChild(enlace);
+      enlace.click();
+      document.body.removeChild(enlace);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('Error generando el Excel del tareo por placa:', e);
+      alert('Ocurrió un error generando el archivo de Excel. Intenta nuevamente.');
+    } finally {
+      boton.disabled = false;
+      boton.textContent = textoOriginalBoton;
+    }
+  }
+
+  document.getElementById('btnExportarExcelTareo').addEventListener('click', exportarExcelTareoPlaca);
+
   /* ---- Asistencia diaria (diagramada por placa/ruta + ausentes) ---- */
   function renderAsistenciaDiaria() {
     const fecha = document.getElementById('diarioFecha').value;
@@ -6718,6 +7079,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     basedatos: document.getElementById('subvistaBaseDatosAsistencia'),
     diario: document.getElementById('subvistaDiariaAsistencia'),
     record: document.getElementById('subvistaRecordAsistencia'),
+    tareo: document.getElementById('subvistaTareoAsistencia'),
     historial: document.getElementById('subvistaHistorialAsistencia'),
     dashboard: document.getElementById('subvistaDashboardAsistencia'),
     panelvisual: document.getElementById('subvistaPanelAsistencia')
@@ -6731,6 +7093,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       b.classList.toggle('activo', b.getAttribute('data-subvista') === nombre);
     });
     if (nombre === 'record') renderRecordAsistencia();
+    if (nombre === 'tareo') renderTareoPlaca();
     if (nombre === 'diario') renderAsistenciaDiaria();
     if (nombre === 'historial') {
       actualizarSelectHistorial();
@@ -10243,6 +10606,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const mesActualStr = `${hoy.getFullYear()}-${hoy.getMonth() + 1 < 10 ? '0' : ''}${hoy.getMonth() + 1}`;
   const fechaActualStr = `${mesActualStr}-${hoy.getDate() < 10 ? '0' : ''}${hoy.getDate()}`;
   document.getElementById('recordMes').value = mesActualStr;
+  document.getElementById('tareoMes').value = mesActualStr;
   document.getElementById('diarioFecha').value = fechaActualStr;
 
   mostrarVista('inicio');

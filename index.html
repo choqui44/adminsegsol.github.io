@@ -2718,6 +2718,63 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <p class="contador" id="contadorMontosPersonal"></p>
     </div>
 
+    <div class="panel" id="panelFuncionesPago">
+      <h2>Funciones y montos especiales</h2>
+      <p class="ayuda-guardar" style="margin:0 0 12px 0;">Úsalo cuando un colaborador sale, en un día puntual, cumpliendo OTRA función a la habitual (por ejemplo, un auxiliar que ese día salió de reparto): define aquí cuánto se paga por cada función, y luego asígnale esa función a la persona en ese día específico — ese día se le pagará con el monto de la función en vez de su monto x día habitual.</p>
+
+      <h3 style="margin:14px 0 8px 0; font-size:14px; color:var(--azul);">Monto x día por función</h3>
+      <div class="fila-cabecera-asistencia">
+        <div class="campo">
+          <label for="funcionNuevoNombre">Función</label>
+          <input type="text" id="funcionNuevoNombre" placeholder="Ej: Reparto">
+        </div>
+        <div class="campo">
+          <label for="funcionNuevoValor">Monto x día (S/)</label>
+          <input type="number" id="funcionNuevoValor" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="campo">
+          <label>&nbsp;</label>
+          <button type="button" class="btn-agregar" id="btnAgregarFuncion">+ Agregar / actualizar función</button>
+        </div>
+      </div>
+      <div class="tabla-wrap" style="margin-top:10px;">
+        <table class="tabla-mapa">
+          <thead><tr><th>Función</th><th>Monto x día</th><th>Acción</th></tr></thead>
+          <tbody id="cuerpoFuncionesPago"></tbody>
+        </table>
+      </div>
+      <p class="contador" id="contadorFuncionesPago"></p>
+
+      <h3 style="margin:18px 0 8px 0; font-size:14px; color:var(--azul);">Asignar función especial a un colaborador en un día puntual</h3>
+      <div class="fila-cabecera-asistencia">
+        <div class="campo">
+          <label for="excFuncColaborador">Colaborador</label>
+          <input type="text" id="excFuncColaborador" list="datalistPersonalGlobal" placeholder="Escribe o elige un nombre">
+        </div>
+        <div class="campo">
+          <label for="excFuncFecha">Fecha</label>
+          <input type="date" id="excFuncFecha">
+        </div>
+        <div class="campo">
+          <label for="excFuncFuncion">Función que cumplió ese día</label>
+          <select id="excFuncFuncion">
+            <option value="">-- Selecciona una función --</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>&nbsp;</label>
+          <button type="button" class="btn-agregar" id="btnAsignarExcepcionPago">+ Asignar</button>
+        </div>
+      </div>
+      <div class="tabla-wrap" style="margin-top:10px;">
+        <table class="tabla-mapa">
+          <thead><tr><th>Fecha</th><th>Colaborador</th><th>Función</th><th>Monto ese día</th><th>Acción</th></tr></thead>
+          <tbody id="cuerpoExcepcionesPago"></tbody>
+        </table>
+      </div>
+      <p class="contador" id="contadorExcepcionesPago"></p>
+    </div>
+
     <div class="panel">
       <h2>Consultar colaborador</h2>
       <div class="fila-cabecera-asistencia">
@@ -4001,6 +4058,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const CLAVE_DESC_PRODUCTOS = 'descuentosProductosDB';
   const CLAVE_DESCUENTOS = 'descuentosPersonalDB';
   const CLAVE_MONTOS = 'montosPersonalDB';
+  const CLAVE_FUNCIONES_PAGO = 'funcionesPagoDB';
+  const CLAVE_EXCEPCIONES_PAGO = 'excepcionesPagoDB';
   const CLAVE_USUARIOS = 'segsolUsuariosDB';
   const CLAVE_SESION = 'segsolSesionActivaDB';
 
@@ -4023,6 +4082,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   let catalogoDescuentos = []; // Descuentos del Personal: catálogo de productos con su valor unitario
   let descuentosPersonal = []; // Descuentos del Personal: descuentos aplicados, ligados a la asistencia del día
   let montosPersonal = []; // Pago y Asistencia por Persona: monto x día (bono) configurado para cada colaborador, ligado por nombre
+  let catalogoFuncionesPago = []; // Pago y Asistencia por Persona: monto x día según la función (ej. Auxiliar, Reparto)
+  let excepcionesPago = []; // Pago y Asistencia por Persona: días puntuales en los que un colaborador salió con otra función
 
   const avisoStorage = document.getElementById('avisoStorage');
   let storageDisponible = true;
@@ -4443,6 +4504,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const limitado = esCuentaColaboradorLimitada();
     const selectPersona = document.getElementById('historialPersona');
     const panelMontos = document.getElementById('panelGestionMontosPersonal');
+    const panelFunciones = document.getElementById('panelFuncionesPago');
     if (!selectPersona || !panelMontos) return;
     if (limitado) {
       if (Array.from(selectPersona.options).some(function (o) { return o.value === usuarioActivo.colaboradorVinculado; })) {
@@ -4450,9 +4512,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
       selectPersona.disabled = true;
       panelMontos.style.display = 'none';
+      if (panelFunciones) panelFunciones.style.display = 'none';
     } else {
       selectPersona.disabled = false;
       panelMontos.style.display = '';
+      if (panelFunciones) panelFunciones.style.display = '';
     }
   }
 
@@ -6781,18 +6845,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         diasPagados: 0,
         montoBono: 0,
         montoDescontadoPorFaltas: 0,
+        diasConFuncionEspecial: [],
         pagoNeto: -totalDescuentosProductos
       };
     }
 
     let asistenciasCount = 0, faltas = 0, justificadas = 0, tardanzas = 0;
+    let montoBono = 0, montoDescontadoPorFaltas = 0;
+    const diasConFuncionEspecial = [];
     const gruposPlacaRuta = {};
     const ordenGrupos = [];
 
+    // ---- Pago: los días con falta INJUSTIFICADA descuentan el monto x día (no se pagan);
+    // los días asistidos, con falta JUSTIFICADA o con tardanza SÍ se pagan (no se descuentan).
+    // Si ese día en particular el colaborador salió con OTRA función (por ejemplo, un auxiliar
+    // que salió de reparto), se usa el monto x día configurado para esa función ese día en vez
+    // de su monto x día habitual -ver tarifaDelDia()-. ----
     registrosPersona.forEach(function (r) {
       const tipo = r.tipo || 'Asistencia';
       if (tipo === 'Asistencia') {
         asistenciasCount++;
+        montoBono += tarifaDelDia(nombreSeleccionado, r.fecha, montoDia, diasConFuncionEspecial);
         const clave = `${r.placa || '(sin placa)'}||${r.ruta || '(sin ruta)'}`;
         if (!gruposPlacaRuta[clave]) {
           gruposPlacaRuta[clave] = { placa: r.placa || '(sin placa)', ruta: r.ruta || '(sin ruta)', veces: 0, primera: r.fecha, ultima: r.fecha };
@@ -6803,9 +6876,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (r.fecha > gruposPlacaRuta[clave].ultima) gruposPlacaRuta[clave].ultima = r.fecha;
       } else {
         const clasif = clasificarRegistroInasistencia(r);
-        if (clasif === 'justificada') justificadas++;
-        else if (clasif === 'tardanza') tardanzas++;
-        else faltas++;
+        if (clasif === 'justificada') { justificadas++; montoBono += tarifaDelDia(nombreSeleccionado, r.fecha, montoDia, diasConFuncionEspecial); }
+        else if (clasif === 'tardanza') { tardanzas++; montoBono += tarifaDelDia(nombreSeleccionado, r.fecha, montoDia, diasConFuncionEspecial); }
+        else { faltas++; montoDescontadoPorFaltas += tarifaDelDia(nombreSeleccionado, r.fecha, montoDia, null); }
       }
     });
 
@@ -6819,11 +6892,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return a.fecha < b.fecha ? 1 : (a.fecha > b.fecha ? -1 : 0);
     });
 
-    // ---- Pago: los días con falta INJUSTIFICADA descuentan el monto x día (no se pagan);
-    // los días asistidos, con falta JUSTIFICADA o con tardanza SÍ se pagan (no se descuentan). ----
+    diasConFuncionEspecial.sort(function (a, b) { return a.fecha < b.fecha ? 1 : (a.fecha > b.fecha ? -1 : 0); });
+
     const diasPagados = asistenciasCount + justificadas + tardanzas;
-    const montoBono = montoDia * diasPagados;
-    const montoDescontadoPorFaltas = montoDia * faltas;
     const pagoNeto = montoBono - totalDescuentosProductos;
 
     return {
@@ -6844,6 +6915,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       diasPagados: diasPagados,
       montoBono: montoBono,
       montoDescontadoPorFaltas: montoDescontadoPorFaltas,
+      diasConFuncionEspecial: diasConFuncionEspecial,
       pagoNeto: pagoNeto
     };
   }
@@ -6868,7 +6940,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     const {
       asistenciasCount, faltas, justificadas, tardanzas, porcentaje, gruposPlacaRuta, ordenGrupos, maxVeces, historialOrdenado,
-      montoDia, tieneMontoConfigurado, descuentosPersona, totalDescuentosProductos, diasPagados, montoBono, montoDescontadoPorFaltas, pagoNeto
+      montoDia, tieneMontoConfigurado, descuentosPersona, totalDescuentosProductos, diasPagados, montoBono, montoDescontadoPorFaltas,
+      diasConFuncionEspecial, pagoNeto
     } = datos;
 
     const bloquePago = `
@@ -6876,7 +6949,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <h2>Pago</h2>
         <p class="ayuda-guardar" style="margin:0 0 12px 0;">
           ${tieneMontoConfigurado
-            ? 'El bono se paga por cada día asistido, con falta justificada o con tardanza. Cada día con falta INJUSTIFICADA descuenta el monto x día del bono.'
+            ? 'El bono se paga por cada día asistido, con falta justificada o con tardanza. Cada día con falta INJUSTIFICADA descuenta el monto x día del bono. Si un día en particular el colaborador salió con otra función, ese día se paga con el monto de esa función (ver "Funciones y montos especiales" arriba).'
             : 'Este colaborador todavía no tiene un "monto x día" configurado arriba, así que su pago aparece en S/ 0.00. Configúralo (manual o por Excel) para calcularlo.'}
         </p>
         <div class="stat-tiles">
@@ -6901,6 +6974,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <div class="stat-valor">S/ ${pagoNeto.toFixed(2)}</div>
           </div>
         </div>
+        ${diasConFuncionEspecial.length === 0 ? '' : `
+          <div style="margin-top:14px;">
+            <p class="ayuda-guardar" style="margin:0 0 8px 0;"><strong>Días con función especial en el periodo</strong> (se pagaron con el monto de esa función, no con el monto x día habitual):</p>
+            <div class="tabla-wrap"><table class="tabla-historial"><thead><tr><th>Fecha</th><th>Función</th><th>Monto ese día</th></tr></thead><tbody>${
+              diasConFuncionEspecial.map(function (d) {
+                return `<tr><td>${escaparHtml(formatearFecha(d.fecha))}</td><td>${escaparHtml(d.funcion)}</td><td>S/ ${d.monto.toFixed(2)}</td></tr>`;
+              }).join('')
+            }</tbody></table></div>
+          </div>
+        `}
       </div>
 
       <div class="panel">
@@ -7055,7 +7138,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     const {
       asistenciasCount, faltas, justificadas, tardanzas, porcentaje, gruposPlacaRuta, ordenGrupos, historialOrdenado,
-      montoDia, descuentosPersona, totalDescuentosProductos, diasPagados, montoDescontadoPorFaltas, pagoNeto
+      montoDia, descuentosPersona, totalDescuentosProductos, diasPagados, montoDescontadoPorFaltas, diasConFuncionEspecial, pagoNeto
     } = datos;
 
     const boton = document.getElementById('btnExportarExcelHistorial');
@@ -7285,6 +7368,34 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         filaTotalDescuentos.getCell(4).font = { bold: true };
         filaTotalDescuentos.getCell(5).font = { bold: true, color: { argb: ROJO_EXCEL } };
         filaTotalDescuentos.getCell(5).numFmt = '"S/" #,##0.00';
+      }
+
+      // ---- Días con función especial ----
+      if (diasConFuncionEspecial.length > 0) {
+        hoja.addRow([]);
+        const filaNum4 = hoja.rowCount + 1;
+        hoja.mergeCells(`A${filaNum4}:F${filaNum4}`);
+        const filaSeccionFuncEsp = hoja.getCell(`A${filaNum4}`);
+        filaSeccionFuncEsp.value = 'Días con función especial (pagados con el monto de esa función)';
+        filaSeccionFuncEsp.font = { bold: true, size: 12, color: { argb: AZUL_EXCEL } };
+        hoja.getRow(filaNum4).height = 20;
+
+        const filaEncFuncEsp = hoja.addRow(['Fecha', 'Función', 'Monto ese día', '', '', '']);
+        estilizarEncabezadoExcel(filaEncFuncEsp, AZUL_EXCEL);
+
+        let indiceFilaFuncEsp = 0;
+        diasConFuncionEspecial.forEach(function (d) {
+          const fila = hoja.addRow([formatearFecha(d.fecha), d.funcion, d.monto, '', '', '']);
+          const colorFila = indiceFilaFuncEsp % 2 === 0 ? 'FFFFFFFF' : GRIS_CLARO_EXCEL;
+          fila.eachCell({ includeEmpty: true }, function (celda, colNum) {
+            if (colNum > 3) return;
+            celda.border = BORDES_CELDA;
+            celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colorFila } };
+            celda.alignment = { vertical: 'middle', horizontal: colNum === 3 ? 'center' : 'left' };
+            if (colNum === 3) celda.numFmt = '"S/" #,##0.00';
+          });
+          indiceFilaFuncEsp++;
+        });
       }
 
       const buffer = await libro.xlsx.writeBuffer();
@@ -10098,14 +10209,21 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
   }
 
+  // Solo dígitos, para poder comparar DNIs aunque tengan espacios, guiones, etc.
+  function normalizarDni(valor) {
+    return (valor || '').toString().replace(/\D/g, '');
+  }
+
   function guardarMontosPersonal() {
-    // Si hay nombres repetidos (por ejemplo, al importar el mismo Excel dos veces, o al agregar
-    // manualmente a alguien que ya tenía monto), se conserva el último monto indicado para cada
-    // colaborador en vez de duplicar filas.
+    // Si hay filas repetidas para la misma persona (por ejemplo, al importar el mismo Excel dos
+    // veces, o al agregar manualmente a alguien que ya tenía monto), se conserva la última indicada
+    // en vez de duplicar filas. Se agrupa por DNI cuando está disponible (más confiable que el
+    // nombre, que puede estar escrito de formas distintas en cada fuente) y si no, por nombre.
     const vistos = {};
     const sinDuplicados = [];
     montosPersonal.slice().reverse().forEach(function (m) {
-      const clave = (m.nombre || '').trim().toLowerCase();
+      const dni = normalizarDni(m.dni);
+      const clave = dni || (m.nombre || '').trim().toLowerCase();
       if (!clave || vistos[clave]) return;
       vistos[clave] = true;
       sinDuplicados.unshift(m);
@@ -10122,7 +10240,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function buscarMontoPorNombre(nombre) {
     const texto = (nombre || '').trim().toLowerCase();
     if (!texto) return null;
-    return montosPersonal.find(function (m) { return (m.nombre || '').trim().toLowerCase() === texto; }) || null;
+    const porNombre = montosPersonal.find(function (m) { return (m.nombre || '').trim().toLowerCase() === texto; });
+    if (porNombre) return porNombre;
+    // Si no se encontró por nombre exacto (por ejemplo, el Excel de montos trae el nombre escrito
+    // distinto al de Registro de Personal / Asistencia), se busca por DNI, que es más confiable.
+    const registro = buscarRegistroPorNombre(nombre);
+    const dni = normalizarDni(registro ? registro.dni : '');
+    if (!dni) return null;
+    return montosPersonal.find(function (m) { return normalizarDni(m.dni) === dni; }) || null;
   }
 
   function renderTablaMontosPersonal() {
@@ -10211,6 +10336,227 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   });
   document.getElementById('inputImportarMontos').addEventListener('change', function (e) {
     procesarArchivoExcel(e.target.files[0], e.target, 'montos');
+  });
+
+  /* ---- Pago y Asistencia por Persona: funciones y montos especiales por día ----
+     Sirve para el caso en que, un día puntual, un colaborador cumple otra función a la
+     habitual (ej. un auxiliar que ese día salió de reparto): ese día se paga con el monto
+     configurado para esa función, en vez del monto x día habitual de la persona. ---- */
+  function cargarFuncionesPago() {
+    try {
+      const guardado = localStorage.getItem(CLAVE_FUNCIONES_PAGO);
+      catalogoFuncionesPago = guardado ? JSON.parse(guardado) : [];
+    } catch (e) {
+      catalogoFuncionesPago = [];
+      mostrarAvisoStorage();
+    }
+  }
+
+  function guardarFuncionesPago() {
+    const vistos = {};
+    const sinDuplicados = [];
+    catalogoFuncionesPago.slice().reverse().forEach(function (f) {
+      const clave = (f.nombre || '').trim().toLowerCase();
+      if (!clave || vistos[clave]) return;
+      vistos[clave] = true;
+      sinDuplicados.unshift(f);
+    });
+    catalogoFuncionesPago = sinDuplicados;
+    try {
+      localStorage.setItem(CLAVE_FUNCIONES_PAGO, JSON.stringify(catalogoFuncionesPago));
+    } catch (e) {
+      mostrarAvisoStorage();
+    }
+    guardarEnNube('funcionesPago', catalogoFuncionesPago);
+  }
+
+  function buscarFuncionPago(nombreFuncion) {
+    const texto = (nombreFuncion || '').trim().toLowerCase();
+    if (!texto) return null;
+    return catalogoFuncionesPago.find(function (f) { return (f.nombre || '').trim().toLowerCase() === texto; }) || null;
+  }
+
+  function cargarExcepcionesPago() {
+    try {
+      const guardado = localStorage.getItem(CLAVE_EXCEPCIONES_PAGO);
+      excepcionesPago = guardado ? JSON.parse(guardado) : [];
+    } catch (e) {
+      excepcionesPago = [];
+      mostrarAvisoStorage();
+    }
+  }
+
+  function guardarExcepcionesPago() {
+    try {
+      localStorage.setItem(CLAVE_EXCEPCIONES_PAGO, JSON.stringify(excepcionesPago));
+    } catch (e) {
+      mostrarAvisoStorage();
+    }
+    guardarEnNube('excepcionesPago', excepcionesPago);
+  }
+
+  function buscarExcepcionPagoDia(nombre, fecha) {
+    const texto = (nombre || '').trim().toLowerCase();
+    if (!texto || !fecha) return null;
+    return excepcionesPago.find(function (x) {
+      return (x.nombre || '').trim().toLowerCase() === texto && x.fecha === fecha;
+    }) || null;
+  }
+
+  // Devuelve cuánto se paga ese día en particular: si hay una función especial asignada para
+  // esa persona y esa fecha, se usa el monto x día de esa función; si no, el monto base (su
+  // monto x día habitual). Si se pasa una lista, se registra en ella el detalle del día especial.
+  function tarifaDelDia(nombreSeleccionado, fecha, montoBase, listaFunEspeciales) {
+    const excepcion = buscarExcepcionPagoDia(nombreSeleccionado, fecha);
+    if (!excepcion) return montoBase;
+    const funcion = buscarFuncionPago(excepcion.funcion);
+    const tarifa = funcion ? (parseFloat(funcion.montoDia) || 0) : montoBase;
+    if (listaFunEspeciales) listaFunEspeciales.push({ fecha: fecha, funcion: excepcion.funcion, monto: tarifa });
+    return tarifa;
+  }
+
+  function poblarSelectFuncionPago() {
+    const select = document.getElementById('excFuncFuncion');
+    const valorActual = select.value;
+    const ordenadas = catalogoFuncionesPago.slice().sort(function (a, b) { return (a.nombre || '').localeCompare(b.nombre || '', 'es'); });
+    select.innerHTML = '<option value="">-- Selecciona una función --</option>' +
+      ordenadas.map(function (f) { return `<option value="${escaparHtml(f.nombre)}">${escaparHtml(f.nombre)} (S/ ${(parseFloat(f.montoDia) || 0).toFixed(2)})</option>`; }).join('');
+    if (ordenadas.some(function (f) { return f.nombre === valorActual; })) select.value = valorActual;
+  }
+
+  function renderTablaFuncionesPago() {
+    const cuerpo = document.getElementById('cuerpoFuncionesPago');
+    if (!cuerpo) return;
+    const ordenadas = catalogoFuncionesPago.slice().sort(function (a, b) { return (a.nombre || '').localeCompare(b.nombre || '', 'es'); });
+    cuerpo.innerHTML = ordenadas.map(function (f) {
+      const idx = catalogoFuncionesPago.indexOf(f);
+      return `
+        <tr>
+          <td>${escaparHtml(f.nombre || '')}</td>
+          <td>S/ ${(parseFloat(f.montoDia) || 0).toFixed(2)}</td>
+          <td>
+            <div class="grupo-botones">
+              <button type="button" class="btn-secundario btn-editar-funcion" data-idx="${idx}">Editar</button>
+              <button type="button" class="btn-eliminar btn-eliminar-funcion" data-idx="${idx}">Eliminar</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    document.getElementById('contadorFuncionesPago').textContent = `${catalogoFuncionesPago.length} función(es) configurada(s)`;
+    poblarSelectFuncionPago();
+  }
+
+  document.getElementById('btnAgregarFuncion').addEventListener('click', function () {
+    const nombreInput = document.getElementById('funcionNuevoNombre');
+    const valorInput = document.getElementById('funcionNuevoValor');
+    const nombre = nombreInput.value.trim();
+    const valor = parseFloat(valorInput.value);
+    if (!nombre) { alert('Escribe el nombre de la función.'); return; }
+    if (isNaN(valor) || valor < 0) { alert('Escribe un monto x día válido.'); return; }
+    const existente = buscarFuncionPago(nombre);
+    if (existente) existente.montoDia = valor;
+    else catalogoFuncionesPago.push({ nombre: nombre, montoDia: valor });
+    guardarFuncionesPago();
+    renderTablaFuncionesPago();
+    renderHistorialColaborador();
+    nombreInput.value = '';
+    valorInput.value = '';
+  });
+
+  document.getElementById('cuerpoFuncionesPago').addEventListener('click', function (e) {
+    const btnEditar = e.target.closest('.btn-editar-funcion');
+    if (btnEditar) {
+      const idx = parseInt(btnEditar.getAttribute('data-idx'), 10);
+      const f = catalogoFuncionesPago[idx];
+      if (!f) return;
+      const nuevo = prompt(`Nuevo monto x día para la función "${f.nombre}" (S/):`, f.montoDia);
+      if (nuevo === null) return;
+      const valor = parseFloat(nuevo);
+      if (isNaN(valor) || valor < 0) { alert('Monto inválido.'); return; }
+      f.montoDia = valor;
+      guardarFuncionesPago();
+      renderTablaFuncionesPago();
+      renderHistorialColaborador();
+      return;
+    }
+    const btnEliminar = e.target.closest('.btn-eliminar-funcion');
+    if (btnEliminar) {
+      const idx = parseInt(btnEliminar.getAttribute('data-idx'), 10);
+      const f = catalogoFuncionesPago[idx];
+      if (!f) return;
+      if (confirm(`¿Eliminar la función "${f.nombre}"? Las asignaciones que ya la usan dejarán de aplicar un monto especial.`)) {
+        catalogoFuncionesPago.splice(idx, 1);
+        guardarFuncionesPago();
+        renderTablaFuncionesPago();
+        renderHistorialColaborador();
+      }
+    }
+  });
+
+  function renderTablaExcepcionesPago() {
+    const cuerpo = document.getElementById('cuerpoExcepcionesPago');
+    if (!cuerpo) return;
+    const ordenadas = excepcionesPago.slice().sort(function (a, b) { return a.fecha < b.fecha ? 1 : (a.fecha > b.fecha ? -1 : 0); });
+    cuerpo.innerHTML = ordenadas.map(function (x) {
+      const idx = excepcionesPago.indexOf(x);
+      const funcion = buscarFuncionPago(x.funcion);
+      const monto = funcion ? (parseFloat(funcion.montoDia) || 0) : 0;
+      return `
+        <tr>
+          <td>${escaparHtml(formatearFecha(x.fecha))}</td>
+          <td>${escaparHtml(x.nombre || '')}</td>
+          <td>${escaparHtml(x.funcion || '')}</td>
+          <td>${funcion ? 'S/ ' + monto.toFixed(2) : '<span class="vacio">función eliminada</span>'}</td>
+          <td>
+            <button type="button" class="btn-eliminar btn-eliminar-excepcion" data-idx="${idx}">Eliminar</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    document.getElementById('contadorExcepcionesPago').textContent = `${excepcionesPago.length} asignación(es) de función especial`;
+  }
+
+  document.getElementById('btnAsignarExcepcionPago').addEventListener('click', function () {
+    const nombreInput = document.getElementById('excFuncColaborador');
+    const fechaInput = document.getElementById('excFuncFecha');
+    const funcionSelect = document.getElementById('excFuncFuncion');
+    const nombre = nombreInput.value.trim();
+    const fecha = fechaInput.value;
+    const funcion = funcionSelect.value;
+
+    if (!nombre) { alert('Escribe o elige el colaborador.'); return; }
+    if (!fecha) { alert('Selecciona la fecha.'); return; }
+    if (!funcion) { alert('Selecciona la función que cumplió ese día.'); return; }
+
+    const yaExiste = buscarExcepcionPagoDia(nombre, fecha);
+    if (yaExiste) {
+      yaExiste.funcion = funcion;
+    } else {
+      excepcionesPago.push({ id: 'exc_' + Date.now() + '_' + Math.floor(Math.random() * 100000), nombre: nombre, fecha: fecha, funcion: funcion });
+    }
+    guardarExcepcionesPago();
+    renderTablaExcepcionesPago();
+    renderHistorialColaborador();
+
+    nombreInput.value = '';
+    fechaInput.value = '';
+    funcionSelect.value = '';
+  });
+
+  document.getElementById('cuerpoExcepcionesPago').addEventListener('click', function (e) {
+    const btnEliminar = e.target.closest('.btn-eliminar-excepcion');
+    if (btnEliminar) {
+      const idx = parseInt(btnEliminar.getAttribute('data-idx'), 10);
+      const x = excepcionesPago[idx];
+      if (!x) return;
+      if (confirm(`¿Eliminar la función especial de "${x.nombre}" el ${formatearFecha(x.fecha)}? Ese día volverá a pagarse con su monto x día habitual.`)) {
+        excepcionesPago.splice(idx, 1);
+        guardarExcepcionesPago();
+        renderTablaExcepcionesPago();
+        renderHistorialColaborador();
+      }
+    }
   });
 
   /* ---- Catálogo de productos para descuento ---- */
@@ -11130,6 +11476,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   renderTablaMontosPersonal();
   actualizarSelectHistorial();
 
+  cargarFuncionesPago();
+  renderTablaFuncionesPago();
+  cargarExcepcionesPago();
+  renderTablaExcepcionesPago();
+
   cargarEpp();
   poblarSelectItemsEpp();
   renderTablaEpp('');
@@ -11242,6 +11593,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     function () { return montosPersonal; },
     function (v) { montosPersonal = v || []; },
     function () { renderTablaMontosPersonal(); actualizarSelectHistorial(); renderHistorialColaborador(); }
+  );
+
+  registrarSincronizacion('funcionesPago', CLAVE_FUNCIONES_PAGO,
+    function () { return catalogoFuncionesPago; },
+    function (v) { catalogoFuncionesPago = v || []; },
+    function () { renderTablaFuncionesPago(); renderTablaExcepcionesPago(); renderHistorialColaborador(); }
+  );
+
+  registrarSincronizacion('excepcionesPago', CLAVE_EXCEPCIONES_PAGO,
+    function () { return excepcionesPago; },
+    function (v) { excepcionesPago = v || []; },
+    function () { renderTablaExcepcionesPago(); renderHistorialColaborador(); }
   );
 
   registrarSincronizacion('epp', CLAVE_EPP,

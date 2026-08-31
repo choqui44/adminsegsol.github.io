@@ -40,7 +40,7 @@ Toda la información (personal, asistencia, pagos, descuentos, etc.) vive en Fir
 
 Esta es una aplicación sin servidor propio (todo corre en el navegador de cada persona), así que su nivel de seguridad tiene límites que debes conocer antes de compartir el enlace con tu equipo:
 
-- **Las contraseñas se guardan como hash SHA-256** (no en texto plano) desde esta versión. Aun así, cualquier persona con el link y conocimientos técnicos podría, en teoría, leer o escribir directamente en la base de datos de Firestore usando la configuración que está en el propio archivo — eso es una limitación inherente a cualquier app 100% cliente sin backend propio.
+- **Las contraseñas se guardan como hash SHA-256** (no en texto plano). Aun así, cualquier persona con el link y conocimientos técnicos podría, en teoría, leer o escribir directamente en la base de datos de Firestore usando la configuración que está en el propio archivo — eso es una limitación inherente a cualquier app 100% cliente sin backend propio.
 - Para reducir ese riesgo:
   - Usa **contraseñas únicas y no obvias** para cada usuario, especialmente para las cuentas de Administración.
   - No compartas el link públicamente (redes sociales, grupos abiertos); compártelo solo con las personas que deben usarlo.
@@ -53,7 +53,8 @@ Esta es una aplicación sin servidor propio (todo corre en el navegador de cada 
 - **Registro de Postulantes**: candidatos del proceso de reclutamiento, con dashboard de reclutamiento.
 - **Registro de Personal**: base de datos maestra del personal.
 - **Asistencia del Personal**: asistencia diaria por ruta/placa, registro de inasistencias, Récord de asistencia por persona (con exportación a Excel con diseño), Tareo por Placa (tripulaciones por camión/placa, día a día, con exportación a Excel), Dashboard de Inasistencias y Panel de Indicadores.
-- **Pago y Asistencia por Persona** (nuevo): para cada colaborador, calcula su bono según su "monto x día" configurado (importable desde Excel con columnas DNI / Nombre del trabajador / Monto x día). Cada día con **falta injustificada** descuenta el monto x día del bono; los días con **falta justificada** o **tardanza** no se descuentan. También muestra los descuentos del personal de esa persona y su historial completo de asistencia, con exportación a Excel con diseño (secciones de Pago, Resumen de asistencia, Placas y rutas, Historial completo y Descuentos del personal).
+- **Pago y Asistencia por Persona**: para cada colaborador, calcula su bono según su "monto x día" configurado (importable desde Excel con columnas DNI / Nombre del trabajador / Monto x día, o manual). Cada día con **falta injustificada** descuenta el monto x día del bono; los días con **falta justificada** o **tardanza** no se descuentan. El monto de cada colaborador se busca primero por nombre y, si no se encuentra (por ejemplo, el nombre está escrito distinto en el Excel importado), se busca automáticamente por **DNI** cruzando con Registro de Personal. También muestra los descuentos del personal de esa persona y su historial completo de asistencia, con exportación a Excel con diseño (secciones de Pago, Resumen de asistencia, Placas y rutas, Historial completo, Descuentos del personal y Días con función especial).
+  - **Funciones y montos especiales**: para el caso de un colaborador que, un día puntual, sale cumpliendo otra función a la habitual (por ejemplo, un auxiliar que ese día salió de reparto). Se define el monto x día de cada función (ej. "Reparto" = S/ 100), y luego se le asigna esa función a la persona en ese día específico — ese día se paga con el monto de la función en vez de su monto x día habitual, y queda reflejado tanto en pantalla como en el Excel exportado.
 - **Cuadre de Caja**: ingresos y egresos de caja chica.
 - **Mapas y Seguimiento de Rutas**: ubicación de clientes desde tu Excel de hoja de ruta.
 - **Liquidaciones y Descuentos**: importación de PDF de liquidación de inventario por camión, y Descuentos del Personal (con división entre varias personas y puesto/rol de cada una).
@@ -66,5 +67,5 @@ Desde **Administración → Crear usuario**, marca la casilla **"Cuenta de colab
 
 - Al iniciar sesión, entra directo a **Pago y Asistencia por Persona**.
 - En el menú, solo ve **Inicio** y **Pago y Asistencia por Persona** (los demás apartados quedan ocultos, y también bloqueados si se intenta entrar por otra vía).
-- Dentro de Pago y Asistencia, el selector de colaborador queda fijo en su propio nombre (no puede ver el pago de otra persona), y el panel de gestión de montos x día (importar/editar) queda oculto — solo puede **ver**, nunca editar.
+- Dentro de Pago y Asistencia, el selector de colaborador queda fijo en su propio nombre (no puede ver el pago de otra persona), y los paneles de gestión (montos x día, funciones y montos especiales) quedan ocultos — solo puede **ver**, nunca editar.
 - Puede exportar a Excel su propio detalle de pago, descuentos y asistencia.

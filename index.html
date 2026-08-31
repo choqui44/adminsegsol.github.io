@@ -1918,6 +1918,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
   <button type="button" class="nav-btn" data-vista="postulantes">🧑‍💼 Registro de Postulantes</button>
   <button type="button" class="nav-btn" data-vista="registro">📋 Registro de Personal</button>
   <button type="button" class="nav-btn" data-vista="asistencia">🚌 Asistencia del Personal</button>
+  <button type="button" class="nav-btn" data-vista="pago">💵 Pago y Asistencia por Persona</button>
   <button type="button" class="nav-btn" data-vista="caja">💰 Cuadre de Caja</button>
   <button type="button" class="nav-btn" data-vista="mapa">🗺️ Mapas y Rutas</button>
   <button type="button" class="nav-btn" data-vista="liquidaciones">🧾 Liquidaciones y Descuentos</button>
@@ -1959,6 +1960,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <span class="card-icono">🚌</span>
         <span class="card-titulo">Asistencia del Personal</span>
         <span class="card-desc">Registra la asistencia diaria del personal asignado a cada ruta y placa, usando la lista de Registro de Personal.</span>
+      </button>
+      <button type="button" class="card-menu" data-ir="pago">
+        <span class="card-icono">💵</span>
+        <span class="card-titulo">Pago y Asistencia por Persona</span>
+        <span class="card-desc">Consulta el pago, los descuentos y la asistencia de cada colaborador. Las faltas injustificadas descuentan el bono; las justificadas no.</span>
       </button>
       <button type="button" class="card-menu" data-ir="caja">
         <span class="card-icono">💰</span>
@@ -2398,7 +2404,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <button type="button" class="subnav-btn" data-subvista="diario">📄 Asistencia diaria</button>
       <button type="button" class="subnav-btn" data-subvista="record">🗓️ Récord de asistencia por persona</button>
       <button type="button" class="subnav-btn" data-subvista="tareo">🚚 Tareo por Placa</button>
-      <button type="button" class="subnav-btn" data-subvista="historial">🔍 Historial por colaborador</button>
       <button type="button" class="subnav-btn" data-subvista="dashboard">📊 Dashboard de Inasistencias</button>
       <button type="button" class="subnav-btn" data-subvista="panelvisual">📈 Panel de Indicadores</button>
     </div>
@@ -2583,33 +2588,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <p class="contador" id="contadorTareo"></p>
     </div>
 
-    <!-- ---- Sub-vista: Historial por colaborador ---- -->
-    <div id="subvistaHistorialAsistencia" style="display:none">
-      <div class="panel">
-        <h2>Historial de asistencia por colaborador</h2>
-        <p class="ayuda-guardar" style="margin:0 0 12px 0;">Consulta cuántas veces salió cada colaborador, en qué placas y rutas, y su resumen de faltas y asistencias. Todo se calcula a partir de la base de datos de asistencia.</p>
-        <div class="fila-cabecera-asistencia">
-          <div class="campo">
-            <label for="historialPersona">Colaborador</label>
-            <select id="historialPersona">
-              <option value="">-- Selecciona un colaborador --</option>
-            </select>
-          </div>
-          <div class="campo">
-            <label for="historialDesde">Desde (opcional)</label>
-            <input type="date" id="historialDesde">
-          </div>
-          <div class="campo">
-            <label for="historialHasta">Hasta (opcional)</label>
-            <input type="date" id="historialHasta">
-          </div>
-        </div>
-        <button type="button" class="btn-secundario" id="btnExportarExcelHistorial" style="margin-top:10px;">📥 Exportar Excel</button>
-      </div>
-
-      <div id="contenidoHistorial"></div>
-    </div>
-
     <!-- ---- Sub-vista: Dashboard de Inasistencias ---- -->
     <div id="subvistaDashboardAsistencia" style="display:none">
       <p class="ayuda-guardar" style="margin:0 0 12px 0;">Todo se calcula a partir de la base de datos de asistencia del personal.</p>
@@ -2694,6 +2672,74 @@ svg.leaflet-image-layer.leaflet-interactive path {
         </div>
       </div>
     </div>
+  </section>
+
+  <!-- ===================== VISTA PAGO Y ASISTENCIA POR PERSONA ===================== -->
+  <section id="vistaPago" class="vista" style="display:none">
+    <h1>Pago y Asistencia por Persona</h1>
+    <p class="subtitulo">Consulta el pago, los descuentos y la asistencia de cada colaborador. El bono se calcula a partir de la base de datos de Asistencia: los días con falta injustificada descuentan el monto x día; los días con falta justificada NO lo descuentan.</p>
+
+    <div class="panel" id="panelGestionMontosPersonal">
+      <h2>Monto x día por colaborador</h2>
+      <p class="ayuda-guardar" style="margin:0 0 12px 0;">Configura cuánto vale el bono diario de cada colaborador (se usa para calcular su pago más abajo). Puedes importarlo desde un Excel con columnas DNI, Nombre del trabajador y Monto x día, o agregarlo/editarlo manualmente. Si ya existe un monto para ese nombre, se actualiza.</p>
+
+      <div class="barra-tabla">
+        <div class="grupo-botones">
+          <button type="button" class="btn-secundario" id="btnImportarMontos">📥 Importar Excel (DNI, nombre, monto x día)</button>
+        </div>
+        <input type="file" id="inputImportarMontos" accept=".xlsx,.xls" style="display:none">
+      </div>
+
+      <div class="fila-cabecera-asistencia" style="margin-top:12px;">
+        <div class="campo">
+          <label for="montoNuevoDni">DNI</label>
+          <input type="text" id="montoNuevoDni" placeholder="DNI">
+        </div>
+        <div class="campo">
+          <label for="montoNuevoNombre">Nombre del trabajador</label>
+          <input type="text" id="montoNuevoNombre" list="datalistPersonalGlobal" placeholder="Escribe o elige un nombre">
+        </div>
+        <div class="campo">
+          <label for="montoNuevoValor">Monto x día (S/)</label>
+          <input type="number" id="montoNuevoValor" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="campo">
+          <label>&nbsp;</label>
+          <button type="button" class="btn-agregar" id="btnAgregarMonto">+ Agregar / actualizar</button>
+        </div>
+      </div>
+
+      <div class="tabla-wrap" style="margin-top:12px;">
+        <table class="tabla-mapa">
+          <thead><tr><th>DNI</th><th>Nombre</th><th>Monto x día</th><th>Acción</th></tr></thead>
+          <tbody id="cuerpoMontosPersonal"></tbody>
+        </table>
+      </div>
+      <p class="contador" id="contadorMontosPersonal"></p>
+    </div>
+
+    <div class="panel">
+      <h2>Consultar colaborador</h2>
+      <div class="fila-cabecera-asistencia">
+        <div class="campo">
+          <label for="historialPersona">Colaborador</label>
+          <select id="historialPersona">
+            <option value="">-- Selecciona un colaborador --</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="historialDesde">Desde (opcional)</label>
+          <input type="date" id="historialDesde">
+        </div>
+        <div class="campo">
+          <label for="historialHasta">Hasta (opcional)</label>
+          <input type="date" id="historialHasta">
+        </div>
+      </div>
+      <button type="button" class="btn-secundario" id="btnExportarExcelHistorial" style="margin-top:10px;">📥 Exportar Excel</button>
+    </div>
+
+    <div id="contenidoHistorial"></div>
   </section>
 
   <!-- ===================== VISTA CUADRE DE CAJA ===================== -->
@@ -3737,9 +3783,24 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <input type="checkbox" id="adminNuevoEsAdmin" style="width:auto;"> Es administrador (acceso total)
           </label>
         </div>
+        <div class="campo">
+          <label for="adminNuevoEsColaborador">&nbsp;</label>
+          <label style="display:flex; align-items:center; gap:6px; font-weight:600; font-size:13px; cursor:pointer; padding:8px 0;">
+            <input type="checkbox" id="adminNuevoEsColaborador" style="width:auto;"> Cuenta de colaborador (solo ve su propio pago)
+          </label>
+        </div>
       </div>
       <p class="ayuda-guardar" id="ayudaPermisosNuevoUsuario" style="margin:6px 0 8px 0;">Elige a qué apartados puede entrar este usuario:</p>
       <div class="lista-permisos-admin" id="listaPermisosNuevoUsuario"></div>
+      <div class="fila-cabecera-asistencia" id="campoColaboradorVinculado" style="display:none; margin-top:6px;">
+        <div class="campo">
+          <label for="adminNuevoColaboradorVinculado">¿A qué colaborador se vincula?</label>
+          <select id="adminNuevoColaboradorVinculado">
+            <option value="">-- Selecciona un colaborador --</option>
+          </select>
+        </div>
+      </div>
+      <p class="ayuda-guardar" id="ayudaColaboradorVinculado" style="display:none; margin:6px 0 0 0;">Esta cuenta solo podrá ver "Pago y Asistencia por Persona", y dentro de ese apartado solo verá su propio pago, sus descuentos y su asistencia. No podrá editar nada, ni ver los demás apartados.</p>
       <button type="button" class="btn-primario" id="btnCrearUsuario" style="margin-top:14px;">+ Crear usuario</button>
     </div>
 
@@ -3939,6 +4000,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const CLAVE_EPP_MINIMOS = 'kardexEppMinimosDB';
   const CLAVE_DESC_PRODUCTOS = 'descuentosProductosDB';
   const CLAVE_DESCUENTOS = 'descuentosPersonalDB';
+  const CLAVE_MONTOS = 'montosPersonalDB';
   const CLAVE_USUARIOS = 'segsolUsuariosDB';
   const CLAVE_SESION = 'segsolSesionActivaDB';
 
@@ -3960,6 +4022,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   let stockMinimoEpp = {}; // Stock de EPP: stock mínimo configurado por ítem (para saber cuándo comprar más)
   let catalogoDescuentos = []; // Descuentos del Personal: catálogo de productos con su valor unitario
   let descuentosPersonal = []; // Descuentos del Personal: descuentos aplicados, ligados a la asistencia del día
+  let montosPersonal = []; // Pago y Asistencia por Persona: monto x día (bono) configurado para cada colaborador, ligado por nombre
 
   const avisoStorage = document.getElementById('avisoStorage');
   let storageDisponible = true;
@@ -4090,6 +4153,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return div.innerHTML;
   }
 
+  /* ---- Seguridad: las contraseñas se guardan como hash SHA-256, nunca en texto plano ----
+     (El navegador solo permite crypto.subtle en contextos seguros: https o localhost. Si no
+     está disponible -por ejemplo al abrir el archivo directamente con file://- se usa la
+     contraseña tal cual como respaldo, para que el ingreso nunca se rompa.) */
+  function pareceHashSha256(texto) {
+    return typeof texto === 'string' && /^[0-9a-f]{64}$/.test(texto);
+  }
+  async function hashSha256Hex(texto) {
+    if (!(window.crypto && window.crypto.subtle)) return texto;
+    try {
+      const datos = new TextEncoder().encode(texto);
+      const buffer = await window.crypto.subtle.digest('SHA-256', datos);
+      return Array.from(new Uint8Array(buffer)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+    } catch (e) {
+      console.error('No se pudo generar el hash de la contraseña:', e);
+      return texto;
+    }
+  }
+
   function formatearFecha(valor) {
     if (!valor) return '';
     const partes = valor.split('-');
@@ -4123,6 +4205,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     mapa: document.getElementById('vistaMapa'),
     liquidaciones: document.getElementById('vistaLiquidaciones'),
     epp: document.getElementById('vistaEpp'),
+    pago: document.getElementById('vistaPago'),
     admin: document.getElementById('vistaAdmin')
   };
   const navBtns = document.querySelectorAll('.nav-btn');
@@ -4148,10 +4231,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (subVistaNombre === 'record') renderRecordAsistencia();
       if (subVistaNombre === 'tareo') renderTareoPlaca();
       if (subVistaNombre === 'diario') renderAsistenciaDiaria();
-      if (subVistaNombre === 'historial') {
-        actualizarSelectHistorial();
-        renderHistorialColaborador();
-      }
+    }
+    if (nombre === 'pago') {
+      actualizarSelectHistorial();
+      aplicarRestriccionColaboradorEnPago();
+      renderHistorialColaborador();
     }
     if (nombre === 'postulantes') {
       renderTablaPostulantes(buscadorPostulantes.value);
@@ -4213,6 +4297,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     { clave: 'postulantes', etiqueta: 'Registro de Postulantes' },
     { clave: 'registro', etiqueta: 'Registro de Personal' },
     { clave: 'asistencia', etiqueta: 'Asistencia del Personal' },
+    { clave: 'pago', etiqueta: 'Pago y Asistencia por Persona' },
     { clave: 'caja', etiqueta: 'Cuadre de Caja' },
     { clave: 'mapa', etiqueta: 'Mapas y Rutas' },
     { clave: 'liquidaciones', etiqueta: 'Liquidaciones y Descuentos' },
@@ -4270,22 +4355,45 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const loginPasswordInput = document.getElementById('loginPassword');
   const avisoLogin = document.getElementById('avisoLogin');
 
+  function badgeUsuarioActivo(u) {
+    if (u.esAdmin) return ' <span class="badge-admin-nav">ADMIN</span>';
+    if (u.colaboradorVinculado) return ' <span class="badge-admin-nav" style="background:#4a4e69;">COLABORADOR</span>';
+    return '';
+  }
+
   function iniciarSesion(u) {
     usuarioActivo = u;
     document.getElementById('pantallaLogin').style.display = 'none';
     document.getElementById('navPrincipal').style.display = 'flex';
     document.getElementById('contenidoApp').style.display = 'block';
-    document.getElementById('nombreUsuarioActivo').innerHTML =
-      escaparHtml(u.usuario) + (u.esAdmin ? ' <span class="badge-admin-nav">ADMIN</span>' : '');
+    document.getElementById('nombreUsuarioActivo').innerHTML = escaparHtml(u.usuario) + badgeUsuarioActivo(u);
     aplicarPermisosUI();
-    mostrarVista('inicio');
+    // Las cuentas de colaborador (creadas desde Administración para que un colaborador vea solo
+    // su propio pago y asistencia) entran directo a ese apartado, no al menú de Inicio.
+    mostrarVista(u.colaboradorVinculado ? 'pago' : 'inicio');
   }
 
-  function intentarLogin() {
+  async function intentarLogin() {
     const nombre = loginUsuarioInput.value;
     const password = loginPasswordInput.value;
     const u = buscarUsuario(nombre);
-    if (!u || u.password !== password) {
+    if (!u) {
+      avisoLogin.textContent = 'Usuario o contraseña incorrectos.';
+      return;
+    }
+    let coincide;
+    if (pareceHashSha256(u.password)) {
+      coincide = (await hashSha256Hex(password)) === u.password;
+    } else {
+      // Compatibilidad con contraseñas antiguas guardadas en texto plano: si coincide,
+      // se migra a hash automáticamente para no volver a guardarla en texto plano.
+      coincide = (u.password === password);
+      if (coincide) {
+        const nuevoHash = await hashSha256Hex(password);
+        if (pareceHashSha256(nuevoHash)) { u.password = nuevoHash; guardarUsuarios(); }
+      }
+    }
+    if (!coincide) {
       avisoLogin.textContent = 'Usuario o contraseña incorrectos.';
       return;
     }
@@ -4324,6 +4432,30 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
+  // Cuenta de colaborador: creada desde Administración, vinculada a UN colaborador puntual.
+  // Solo puede ver "Pago y Asistencia por Persona", y dentro de ese apartado, solo su propia
+  // información -y sin poder editar nada (ni los montos x día ni los descuentos)-.
+  function esCuentaColaboradorLimitada() {
+    return !!(usuarioActivo && !usuarioActivo.esAdmin && usuarioActivo.colaboradorVinculado);
+  }
+
+  function aplicarRestriccionColaboradorEnPago() {
+    const limitado = esCuentaColaboradorLimitada();
+    const selectPersona = document.getElementById('historialPersona');
+    const panelMontos = document.getElementById('panelGestionMontosPersonal');
+    if (!selectPersona || !panelMontos) return;
+    if (limitado) {
+      if (Array.from(selectPersona.options).some(function (o) { return o.value === usuarioActivo.colaboradorVinculado; })) {
+        selectPersona.value = usuarioActivo.colaboradorVinculado;
+      }
+      selectPersona.disabled = true;
+      panelMontos.style.display = 'none';
+    } else {
+      selectPersona.disabled = false;
+      panelMontos.style.display = '';
+    }
+  }
+
   function restaurarSesionGuardada() {
     let sesionGuardada = null;
     try {
@@ -4351,55 +4483,101 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   renderListaPermisosNuevoUsuario();
 
   const adminNuevoEsAdmin = document.getElementById('adminNuevoEsAdmin');
+  const adminNuevoEsColaborador = document.getElementById('adminNuevoEsColaborador');
+
+  function poblarSelectColaboradorVinculado() {
+    const select = document.getElementById('adminNuevoColaboradorVinculado');
+    const valorActual = select.value;
+    const nombres = obtenerNombresUnicosAsistencia();
+    select.innerHTML = '<option value="">-- Selecciona un colaborador --</option>' +
+      nombres.map(function (n) { return `<option value="${escaparHtml(n)}">${escaparHtml(n)}</option>`; }).join('');
+    if (nombres.indexOf(valorActual) !== -1) select.value = valorActual;
+  }
+
   function actualizarVisibilidadPermisosNuevoUsuario() {
-    const ocultar = adminNuevoEsAdmin.checked;
+    const esColaborador = adminNuevoEsColaborador.checked;
+    const ocultar = adminNuevoEsAdmin.checked || esColaborador;
     document.getElementById('ayudaPermisosNuevoUsuario').style.display = ocultar ? 'none' : '';
     document.getElementById('listaPermisosNuevoUsuario').style.display = ocultar ? 'none' : '';
+    document.getElementById('campoColaboradorVinculado').style.display = esColaborador ? '' : 'none';
+    document.getElementById('ayudaColaboradorVinculado').style.display = esColaborador ? '' : 'none';
+    adminNuevoEsAdmin.disabled = esColaborador;
+    adminNuevoEsColaborador.disabled = adminNuevoEsAdmin.checked;
+    if (esColaborador) poblarSelectColaboradorVinculado();
   }
   adminNuevoEsAdmin.addEventListener('change', actualizarVisibilidadPermisosNuevoUsuario);
+  adminNuevoEsColaborador.addEventListener('change', actualizarVisibilidadPermisosNuevoUsuario);
   actualizarVisibilidadPermisosNuevoUsuario();
 
-  document.getElementById('btnCrearUsuario').addEventListener('click', function () {
+  document.getElementById('btnCrearUsuario').addEventListener('click', async function () {
     const nombreInput = document.getElementById('adminNuevoUsuario');
     const passwordInput = document.getElementById('adminNuevaPassword');
     const nombre = nombreInput.value.trim();
     const password = passwordInput.value;
     const esAdmin = adminNuevoEsAdmin.checked;
+    const esColaborador = adminNuevoEsColaborador.checked;
+    const colaboradorVinculado = esColaborador ? document.getElementById('adminNuevoColaboradorVinculado').value : '';
 
     if (!nombre) { alert('Escribe el nombre de usuario.'); return; }
     if (!password) { alert('Escribe una contraseña.'); return; }
     if (buscarUsuario(nombre)) { alert('Ya existe un usuario con ese nombre.'); return; }
+    if (esColaborador && !colaboradorVinculado) { alert('Selecciona a qué colaborador se vincula esta cuenta.'); return; }
 
     const permisos = permisosVacios();
     if (esAdmin) {
       Object.keys(permisos).forEach(function (k) { permisos[k] = true; });
+    } else if (esColaborador) {
+      permisos.pago = true;
     } else {
       document.querySelectorAll('.chk-permiso-nuevo-usuario:checked').forEach(function (chk) {
         permisos[chk.value] = true;
       });
     }
 
-    usuarios.push({ usuario: nombre, password: password, esAdmin: esAdmin, permisos: permisos });
+    usuarios.push({
+      usuario: nombre,
+      password: await hashSha256Hex(password),
+      esAdmin: esAdmin,
+      permisos: permisos,
+      colaboradorVinculado: colaboradorVinculado || null
+    });
     guardarUsuarios();
     renderTablaUsuarios();
 
     nombreInput.value = '';
     passwordInput.value = '';
     adminNuevoEsAdmin.checked = false;
+    adminNuevoEsColaborador.checked = false;
     document.querySelectorAll('.chk-permiso-nuevo-usuario').forEach(function (chk) { chk.checked = false; });
     actualizarVisibilidadPermisosNuevoUsuario();
-    alert(`Usuario "${nombre}" creado correctamente.`);
+    alert(`Usuario "${nombre}" creado correctamente.` + (esColaborador ? ` Solo podrá ver el pago y asistencia de "${colaboradorVinculado}".` : ''));
   });
 
   function renderTablaUsuarios() {
     const cuerpo = document.getElementById('cuerpoTablaUsuarios');
+    const nombresColaboradores = obtenerNombresUnicosAsistencia();
     cuerpo.innerHTML = usuarios.map(function (u, idx) {
-      const chipsPermisos = u.esAdmin
-        ? '<span class="chip-permiso-usuario">Acceso total</span>'
-        : `<div class="lista-permisos-admin">${MODULOS_PERMISOS.map(function (m) {
+      let chipsPermisos;
+      if (u.esAdmin) {
+        chipsPermisos = '<span class="chip-permiso-usuario">Acceso total</span>';
+      } else if (u.colaboradorVinculado) {
+        const opciones = '<option value="">-- Selecciona un colaborador --</option>' + nombresColaboradores.map(function (n) {
+          return `<option value="${escaparHtml(n)}" ${n === u.colaboradorVinculado ? 'selected' : ''}>${escaparHtml(n)}</option>`;
+        }).join('');
+        chipsPermisos = `
+          <span class="chip-permiso-usuario">Cuenta de colaborador · solo ve su propio Pago y Asistencia (no puede editar)</span>
+          <div style="margin-top:6px;">
+            <label style="font-size:12px;">Vinculado a:
+              <select class="sel-colaborador-vinculado-usuario" data-idx="${idx}">${opciones}</select>
+            </label>
+          </div>
+        `;
+      } else {
+        chipsPermisos = `<div class="lista-permisos-admin">${MODULOS_PERMISOS.map(function (m) {
             const marcado = !!(u.permisos && u.permisos[m.clave]);
             return `<label><input type="checkbox" class="chk-permiso-usuario" data-idx="${idx}" data-modulo="${escaparHtml(m.clave)}" ${marcado ? 'checked' : ''}> ${escaparHtml(m.etiqueta)}</label>`;
           }).join('')}</div>`;
+      }
       return `
         <tr>
           <td>${escaparHtml(u.usuario)}</td>
@@ -4433,13 +4611,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         return;
       }
       u.esAdmin = chkAdmin.checked;
-      if (u.esAdmin) Object.keys(u.permisos || {}).forEach(function (k) { u.permisos[k] = true; });
+      if (u.esAdmin) {
+        Object.keys(u.permisos || {}).forEach(function (k) { u.permisos[k] = true; });
+        u.colaboradorVinculado = null; // una cuenta administradora ya no está limitada a un solo colaborador
+      }
       guardarUsuarios();
       renderTablaUsuarios();
       if (usuarioActivo && usuarioActivo.usuario === u.usuario) {
         usuarioActivo = u;
-        document.getElementById('nombreUsuarioActivo').innerHTML =
-          escaparHtml(u.usuario) + (u.esAdmin ? ' <span class="badge-admin-nav">ADMIN</span>' : '');
+        document.getElementById('nombreUsuarioActivo').innerHTML = escaparHtml(u.usuario) + badgeUsuarioActivo(u);
         aplicarPermisosUI();
       }
       return;
@@ -4458,10 +4638,28 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         usuarioActivo = u;
         aplicarPermisosUI();
       }
+      return;
+    }
+
+    const selVinculo = e.target.closest('.sel-colaborador-vinculado-usuario');
+    if (selVinculo) {
+      const idx = parseInt(selVinculo.getAttribute('data-idx'), 10);
+      const u = usuarios[idx];
+      if (!u) return;
+      u.colaboradorVinculado = selVinculo.value || null;
+      guardarUsuarios();
+      if (usuarioActivo && usuarioActivo.usuario === u.usuario) {
+        usuarioActivo = u;
+        if (document.getElementById('vistaPago') && document.getElementById('vistaPago').style.display !== 'none') {
+          actualizarSelectHistorial();
+          aplicarRestriccionColaboradorEnPago();
+          renderHistorialColaborador();
+        }
+      }
     }
   });
 
-  document.getElementById('cuerpoTablaUsuarios').addEventListener('click', function (e) {
+  document.getElementById('cuerpoTablaUsuarios').addEventListener('click', async function (e) {
     const btnPassword = e.target.closest('.btn-cambiar-password-usuario');
     if (btnPassword) {
       const idx = parseInt(btnPassword.getAttribute('data-idx'), 10);
@@ -4470,7 +4668,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const nueva = prompt(`Nueva contraseña para "${u.usuario}":`);
       if (nueva === null) return;
       if (!nueva.trim()) { alert('La contraseña no puede quedar vacía.'); return; }
-      u.password = nueva;
+      u.password = await hashSha256Hex(nueva);
       guardarUsuarios();
       alert('Contraseña actualizada correctamente.');
       return;
@@ -4841,6 +5039,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return (valor === null || valor === undefined) ? '' : valor.toString().trim();
   }
 
+  const ALIAS_CAMPOS_EXCEL_MONTOS = {
+    dni: ['DNI', 'DNICEE', 'DNICE', 'DOCUMENTO', 'NDOCUMENTO', 'NUMERODOCUMENTO'],
+    nombre: ['NOMBRE', 'NOMBRES', 'TRABAJADOR', 'NOMBREDELTRABAJADOR', 'NOMBRETRABAJADOR', 'COLABORADOR', 'APELLIDOSYNOMBRES', 'NOMBRESYAPELLIDOS'],
+    montoDia: ['MONTOXDIA', 'MONTOPORDIA', 'MONTODIA', 'MONTO', 'BONO', 'BONOXDIA', 'BONOPORDIA', 'BONODIA']
+  };
+
+  const PLANTILLA_EXCEL_MONTOS = { dni: '', nombre: '', montoDia: 0 };
+
+  function convertirValorCampoExcelMontos(campo, valor) {
+    if (campo === 'montoDia') return convertirValorMonedaExcel(valor);
+    if (campo === 'dni') return convertirTextoNumericoExcel(valor);
+    return (valor === null || valor === undefined) ? '' : valor.toString().trim();
+  }
+
   let registrosPendientesImportacionExcel = [];
   let destinoImportacionExcel = 'registro'; // 'registro' | 'postulantes'
 
@@ -4891,6 +5103,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       plantilla: PLANTILLA_EXCEL_DESC_PRODUCTOS,
       convertirValor: convertirValorCampoExcelDescProductos,
       pistaEncabezados: 'PRODUCTO y VALOR (o PRECIO / VALOR UNITARIO)'
+    },
+    montos: {
+      nombre: 'Monto x día del personal (Pago y Asistencia por Persona)',
+      obtenerLista: function () { return montosPersonal; },
+      fijarLista: function (lista) { montosPersonal = lista; },
+      guardar: function () { guardarMontosPersonal(); },
+      render: function () { renderTablaMontosPersonal(); actualizarSelectHistorial(); renderHistorialColaborador(); },
+      aliases: ALIAS_CAMPOS_EXCEL_MONTOS,
+      plantilla: PLANTILLA_EXCEL_MONTOS,
+      convertirValor: convertirValorCampoExcelMontos,
+      pistaEncabezados: 'DNI, NOMBRE DEL TRABAJADOR, MONTO X DIA'
     }
   };
 
@@ -6492,18 +6715,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   document.getElementById('diarioFecha').addEventListener('change', renderAsistenciaDiaria);
 
-  /* ---- Historial de asistencia por colaborador ---- */
+  /* ---- Pago y Asistencia por Persona: lista de nombres a elegir ---- */
   function obtenerNombresUnicosAsistencia() {
     const vistos = {};
     const lista = [];
-    asistencias.forEach(function (r) {
-      const nombre = (r.nombre || '').trim();
-      if (!nombre) return;
-      const clave = nombre.toLowerCase();
+    function agregar(nombre) {
+      const limpio = (nombre || '').trim();
+      if (!limpio) return;
+      const clave = limpio.toLowerCase();
       if (vistos[clave]) return;
       vistos[clave] = true;
-      lista.push(nombre);
-    });
+      lista.push(limpio);
+    }
+    asistencias.forEach(function (r) { agregar(r.nombre); });
+    // También se incluye a todo el personal registrado (aunque aún no tenga asistencias marcadas)
+    // y a quienes ya tengan un monto x día configurado, para que Pago y Asistencia los muestre.
+    registros.forEach(function (r) { agregar(`${r.nombres || ''} ${r.apellidos || ''}`); });
+    montosPersonal.forEach(function (m) { agregar(m.nombre); });
     lista.sort(function (a, b) { return a.localeCompare(b, 'es'); });
     return lista;
   }
@@ -6522,13 +6750,40 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function calcularHistorialColaborador(nombreSeleccionado, desde, hasta) {
     if (!nombreSeleccionado) return null;
 
+    // ---- Pago: monto x día configurado, y descuentos del personal (independientes de si hay
+    // asistencias en el rango, para que siempre se puedan mostrar). ----
+    const montoInfo = buscarMontoPorNombre(nombreSeleccionado);
+    const montoDia = montoInfo ? (parseFloat(montoInfo.montoDia) || 0) : 0;
+
+    let descuentosPersona = descuentosPersonal.filter(function (d) {
+      return (d.personal || '').trim().toLowerCase() === nombreSeleccionado.trim().toLowerCase();
+    });
+    if (desde) descuentosPersona = descuentosPersona.filter(function (d) { return d.fecha >= desde; });
+    if (hasta) descuentosPersona = descuentosPersona.filter(function (d) { return d.fecha <= hasta; });
+    descuentosPersona = descuentosPersona.slice().sort(function (a, b) {
+      return a.fecha < b.fecha ? 1 : (a.fecha > b.fecha ? -1 : 0);
+    });
+    const totalDescuentosProductos = descuentosPersona.reduce(function (acc, d) { return acc + (parseFloat(d.valor) || 0); }, 0);
+
     let registrosPersona = asistencias.filter(function (r) {
       return (r.nombre || '').trim().toLowerCase() === nombreSeleccionado.trim().toLowerCase();
     });
     if (desde) registrosPersona = registrosPersona.filter(function (r) { return r.fecha >= desde; });
     if (hasta) registrosPersona = registrosPersona.filter(function (r) { return r.fecha <= hasta; });
 
-    if (registrosPersona.length === 0) return { registrosPersona: [] };
+    if (registrosPersona.length === 0) {
+      return {
+        registrosPersona: [],
+        montoDia: montoDia,
+        tieneMontoConfigurado: !!montoInfo,
+        descuentosPersona: descuentosPersona,
+        totalDescuentosProductos: totalDescuentosProductos,
+        diasPagados: 0,
+        montoBono: 0,
+        montoDescontadoPorFaltas: 0,
+        pagoNeto: -totalDescuentosProductos
+      };
+    }
 
     let asistenciasCount = 0, faltas = 0, justificadas = 0, tardanzas = 0;
     const gruposPlacaRuta = {};
@@ -6564,6 +6819,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return a.fecha < b.fecha ? 1 : (a.fecha > b.fecha ? -1 : 0);
     });
 
+    // ---- Pago: los días con falta INJUSTIFICADA descuentan el monto x día (no se pagan);
+    // los días asistidos, con falta JUSTIFICADA o con tardanza SÍ se pagan (no se descuentan). ----
+    const diasPagados = asistenciasCount + justificadas + tardanzas;
+    const montoBono = montoDia * diasPagados;
+    const montoDescontadoPorFaltas = montoDia * faltas;
+    const pagoNeto = montoBono - totalDescuentosProductos;
+
     return {
       registrosPersona: registrosPersona,
       asistenciasCount: asistenciasCount,
@@ -6574,7 +6836,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       gruposPlacaRuta: gruposPlacaRuta,
       ordenGrupos: ordenGrupos,
       maxVeces: maxVeces,
-      historialOrdenado: historialOrdenado
+      historialOrdenado: historialOrdenado,
+      montoDia: montoDia,
+      tieneMontoConfigurado: !!montoInfo,
+      descuentosPersona: descuentosPersona,
+      totalDescuentosProductos: totalDescuentosProductos,
+      diasPagados: diasPagados,
+      montoBono: montoBono,
+      montoDescontadoPorFaltas: montoDescontadoPorFaltas,
+      pagoNeto: pagoNeto
     };
   }
 
@@ -6585,18 +6855,77 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const hasta = document.getElementById('historialHasta').value;
 
     if (!nombreSeleccionado) {
-      contenedor.innerHTML = '<p class="vacio">Selecciona un colaborador para ver su historial.</p>';
+      contenedor.innerHTML = '<p class="vacio">Selecciona un colaborador para ver su pago, sus descuentos y su asistencia.</p>';
       return;
     }
 
     const datos = calcularHistorialColaborador(nombreSeleccionado, desde, hasta);
 
-    if (!datos || datos.registrosPersona.length === 0) {
-      contenedor.innerHTML = '<p class="vacio">No hay registros de asistencia para este colaborador en el rango seleccionado.</p>';
+    if (!datos) {
+      contenedor.innerHTML = '<p class="vacio">Selecciona un colaborador para ver su pago, sus descuentos y su asistencia.</p>';
       return;
     }
 
-    const { asistenciasCount, faltas, justificadas, tardanzas, porcentaje, gruposPlacaRuta, ordenGrupos, maxVeces, historialOrdenado } = datos;
+    const {
+      asistenciasCount, faltas, justificadas, tardanzas, porcentaje, gruposPlacaRuta, ordenGrupos, maxVeces, historialOrdenado,
+      montoDia, tieneMontoConfigurado, descuentosPersona, totalDescuentosProductos, diasPagados, montoBono, montoDescontadoPorFaltas, pagoNeto
+    } = datos;
+
+    const bloquePago = `
+      <div class="panel">
+        <h2>Pago</h2>
+        <p class="ayuda-guardar" style="margin:0 0 12px 0;">
+          ${tieneMontoConfigurado
+            ? 'El bono se paga por cada día asistido, con falta justificada o con tardanza. Cada día con falta INJUSTIFICADA descuenta el monto x día del bono.'
+            : 'Este colaborador todavía no tiene un "monto x día" configurado arriba, así que su pago aparece en S/ 0.00. Configúralo (manual o por Excel) para calcularlo.'}
+        </p>
+        <div class="stat-tiles">
+          <div class="stat-tile stat-naranja">
+            <div class="stat-label">Monto x día</div>
+            <div class="stat-valor">S/ ${montoDia.toFixed(2)}</div>
+          </div>
+          <div class="stat-tile stat-verde">
+            <div class="stat-label">Días pagados</div>
+            <div class="stat-valor">${diasPagados}</div>
+          </div>
+          <div class="stat-tile stat-rojo">
+            <div class="stat-label">Descuento por faltas (${faltas})</div>
+            <div class="stat-valor">- S/ ${montoDescontadoPorFaltas.toFixed(2)}</div>
+          </div>
+          <div class="stat-tile stat-ambar">
+            <div class="stat-label">Descuentos del personal</div>
+            <div class="stat-valor">- S/ ${totalDescuentosProductos.toFixed(2)}</div>
+          </div>
+          <div class="stat-tile stat-hero">
+            <div class="stat-label">Pago neto estimado</div>
+            <div class="stat-valor">S/ ${pagoNeto.toFixed(2)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Descuentos del personal</h2>
+        ${descuentosPersona.length === 0
+          ? '<p class="vacio">Este colaborador no tiene descuentos registrados en el rango seleccionado.</p>'
+          : `<div class="tabla-wrap"><table class="tabla-historial"><thead><tr><th>Fecha</th><th>Producto</th><th>Cantidad</th><th>Valor unitario</th><th>Valor</th></tr></thead><tbody>${
+              descuentosPersona.map(function (d) {
+                return `<tr>
+                  <td>${escaparHtml(formatearFecha(d.fecha))}</td>
+                  <td>${escaparHtml(d.producto)}</td>
+                  <td>${escaparHtml(String(d.cantidad != null ? d.cantidad : ''))}</td>
+                  <td>S/ ${(parseFloat(d.valorUnitario) || 0).toFixed(2)}</td>
+                  <td>S/ ${(parseFloat(d.valor) || 0).toFixed(2)}</td>
+                </tr>`;
+              }).join('')
+            }</tbody></table></div><p class="contador">Total descontado: S/ ${totalDescuentosProductos.toFixed(2)}</p>`
+        }
+      </div>
+    `;
+
+    if (datos.registrosPersona.length === 0) {
+      contenedor.innerHTML = bloquePago + '<div class="panel"><h2>Asistencia</h2><p class="vacio">No hay registros de asistencia para este colaborador en el rango seleccionado.</p></div>';
+      return;
+    }
 
     const filasPlacas = ordenGrupos.map(function (clave) {
       const g = gruposPlacaRuta[clave];
@@ -6634,27 +6963,30 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       `;
     }).join('');
 
-    contenedor.innerHTML = `
-      <div class="stat-tiles">
-        <div class="stat-tile stat-verde">
-          <div class="stat-label">Asistencias</div>
-          <div class="stat-valor">${asistenciasCount}</div>
-        </div>
-        <div class="stat-tile stat-rojo">
-          <div class="stat-label">Faltas (no justificadas)</div>
-          <div class="stat-valor">${faltas}</div>
-        </div>
-        <div class="stat-tile stat-ambar">
-          <div class="stat-label">Faltas justificadas</div>
-          <div class="stat-valor">${justificadas}</div>
-        </div>
-        <div class="stat-tile stat-azul-tile">
-          <div class="stat-label">Tardanzas</div>
-          <div class="stat-valor">${tardanzas}</div>
-        </div>
-        <div class="stat-tile stat-hero">
-          <div class="stat-label">% de asistencia</div>
-          <div class="stat-valor">${porcentaje}%</div>
+    contenedor.innerHTML = bloquePago + `
+      <div class="panel">
+        <h2>Asistencia</h2>
+        <div class="stat-tiles">
+          <div class="stat-tile stat-verde">
+            <div class="stat-label">Asistencias</div>
+            <div class="stat-valor">${asistenciasCount}</div>
+          </div>
+          <div class="stat-tile stat-rojo">
+            <div class="stat-label">Faltas (no justificadas)</div>
+            <div class="stat-valor">${faltas}</div>
+          </div>
+          <div class="stat-tile stat-ambar">
+            <div class="stat-label">Faltas justificadas</div>
+            <div class="stat-valor">${justificadas}</div>
+          </div>
+          <div class="stat-tile stat-azul-tile">
+            <div class="stat-label">Tardanzas</div>
+            <div class="stat-valor">${tardanzas}</div>
+          </div>
+          <div class="stat-tile stat-hero">
+            <div class="stat-label">% de asistencia</div>
+            <div class="stat-valor">${porcentaje}%</div>
+          </div>
         </div>
       </div>
 
@@ -6716,12 +7048,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
 
     const datos = calcularHistorialColaborador(nombreSeleccionado, desde, hasta);
-    if (!datos || datos.registrosPersona.length === 0) {
-      alert('No hay registros de asistencia para este colaborador en el rango seleccionado.');
+    if (!datos || (datos.registrosPersona.length === 0 && !datos.tieneMontoConfigurado && datos.descuentosPersona.length === 0)) {
+      alert('No hay información de pago, descuentos ni asistencia para este colaborador en el rango seleccionado.');
       return;
     }
 
-    const { asistenciasCount, faltas, justificadas, tardanzas, porcentaje, gruposPlacaRuta, ordenGrupos, historialOrdenado } = datos;
+    const {
+      asistenciasCount, faltas, justificadas, tardanzas, porcentaje, gruposPlacaRuta, ordenGrupos, historialOrdenado,
+      montoDia, descuentosPersona, totalDescuentosProductos, diasPagados, montoDescontadoPorFaltas, pagoNeto
+    } = datos;
 
     const boton = document.getElementById('btnExportarExcelHistorial');
     const textoOriginalBoton = boton.textContent;
@@ -6733,7 +7068,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       libro.creator = 'SEGSOL';
       libro.created = new Date();
 
-      const hoja = libro.addWorksheet('Historial', {
+      const hoja = libro.addWorksheet('Pago y Asistencia', {
         views: [{ showGridLines: false }]
       });
 
@@ -6749,7 +7084,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // ---- Título ----
       hoja.mergeCells('A1:F1');
       const filaTitulo = hoja.getCell('A1');
-      filaTitulo.value = 'SEGSOL · Historial de Asistencia por Colaborador';
+      filaTitulo.value = 'SEGSOL · Pago y Asistencia por Colaborador';
       filaTitulo.font = { bold: true, size: 15, color: { argb: 'FFFFFFFF' } };
       filaTitulo.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_EXCEL } };
       filaTitulo.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 };
@@ -6767,12 +7102,46 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
       hoja.addRow([]);
 
+      // ---- Pago ----
+      const filaNum0 = hoja.rowCount + 1;
+      hoja.mergeCells(`A${filaNum0}:F${filaNum0}`);
+      const filaSeccionPago = hoja.getCell(`A${filaNum0}`);
+      filaSeccionPago.value = 'Pago';
+      filaSeccionPago.font = { bold: true, size: 12, color: { argb: AZUL_EXCEL } };
+      hoja.getRow(filaNum0).height = 20;
+
+      const filaPagoEtiquetas = hoja.addRow(['Monto x día', 'Días pagados', 'Descuento por faltas', 'Descuentos del personal', 'Pago neto estimado', '']);
+      const coloresPago = [AZUL_CLARO_EXCEL, VERDE_CLARO_EXCEL, ROJO_CLARO_EXCEL, AMBAR_CLARO_EXCEL, AZUL_EXCEL, null];
+      const coloresTextoPago = [AZUL_EXCEL, VERDE_EXCEL, ROJO_EXCEL, AMBAR_EXCEL, 'FFFFFFFF', null];
+      filaPagoEtiquetas.eachCell({ includeEmpty: true }, function (celda, colNum) {
+        if (colNum > 5) return;
+        celda.font = { bold: true, size: 10, color: { argb: coloresTextoPago[colNum - 1] === 'FFFFFFFF' ? 'FFFFFFFF' : 'FF3A3D5C' } };
+        celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: coloresPago[colNum - 1] } };
+        celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        celda.border = BORDES_CELDA;
+      });
+      filaPagoEtiquetas.height = 28;
+
+      const filaPagoValores = hoja.addRow([montoDia, diasPagados, -montoDescontadoPorFaltas, -totalDescuentosProductos, pagoNeto, '']);
+      filaPagoValores.eachCell({ includeEmpty: true }, function (celda, colNum) {
+        if (colNum > 5) return;
+        celda.font = { bold: true, size: 14, color: { argb: coloresTextoPago[colNum - 1] === 'FFFFFFFF' ? AZUL_EXCEL : coloresTextoPago[colNum - 1] } };
+        celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: coloresPago[colNum - 1] === AZUL_EXCEL ? AZUL_CLARO_EXCEL : coloresPago[colNum - 1] } };
+        celda.alignment = { vertical: 'middle', horizontal: 'center' };
+        celda.border = BORDES_CELDA;
+        if (colNum !== 2) celda.numFmt = '"S/" #,##0.00';
+      });
+      filaPagoValores.height = 26;
+
+      hoja.addRow([]);
+
       // ---- Resumen (tiles) ----
-      hoja.mergeCells('A4:F4');
-      const filaSeccionResumen = hoja.getCell('A4');
+      const filaNumResumen = hoja.rowCount + 1;
+      hoja.mergeCells(`A${filaNumResumen}:F${filaNumResumen}`);
+      const filaSeccionResumen = hoja.getCell(`A${filaNumResumen}`);
       filaSeccionResumen.value = 'Resumen';
       filaSeccionResumen.font = { bold: true, size: 12, color: { argb: AZUL_EXCEL } };
-      hoja.getRow(4).height = 20;
+      hoja.getRow(filaNumResumen).height = 20;
 
       const filaResumenEtiquetas = hoja.addRow(['Asistencias', 'Faltas (no justif.)', 'Faltas justificadas', 'Tardanzas', '% de asistencia', '']);
       const coloresResumen = [VERDE_CLARO_EXCEL, ROJO_CLARO_EXCEL, AMBAR_CLARO_EXCEL, AZUL_CLARO_EXCEL, AZUL_EXCEL, null];
@@ -6873,13 +7242,58 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       hoja.autoFilter = { from: { row: filaInicioTablaHistorial, column: 1 }, to: { row: filaInicioTablaHistorial, column: 6 } };
       hoja.views = [{ state: 'frozen', ySplit: filaInicioTablaHistorial, showGridLines: false }];
 
+      hoja.addRow([]);
+
+      // ---- Descuentos del personal ----
+      const filaNum3 = hoja.rowCount + 1;
+      hoja.mergeCells(`A${filaNum3}:F${filaNum3}`);
+      const filaSeccionDescuentos = hoja.getCell(`A${filaNum3}`);
+      filaSeccionDescuentos.value = 'Descuentos del personal';
+      filaSeccionDescuentos.font = { bold: true, size: 12, color: { argb: AZUL_EXCEL } };
+      hoja.getRow(filaNum3).height = 20;
+
+      if (descuentosPersona.length === 0) {
+        const filaVacioDescuentos = hoja.addRow(['Este colaborador no tiene descuentos registrados en el rango seleccionado.']);
+        hoja.mergeCells(`A${filaVacioDescuentos.number}:F${filaVacioDescuentos.number}`);
+        filaVacioDescuentos.getCell(1).font = { italic: true, color: { argb: 'FF7B7F99' } };
+      } else {
+        const filaEncabezadoDescuentos = hoja.addRow(['Fecha', 'Producto', 'Cantidad', 'Valor unitario', 'Valor', '']);
+        estilizarEncabezadoExcel(filaEncabezadoDescuentos, AZUL_EXCEL);
+
+        let indiceFilaDesc = 0;
+        descuentosPersona.forEach(function (d) {
+          const fila = hoja.addRow([
+            formatearFecha(d.fecha),
+            d.producto || '',
+            d.cantidad != null ? d.cantidad : '',
+            parseFloat(d.valorUnitario) || 0,
+            parseFloat(d.valor) || 0,
+            ''
+          ]);
+          const colorFila = indiceFilaDesc % 2 === 0 ? 'FFFFFFFF' : GRIS_CLARO_EXCEL;
+          fila.eachCell({ includeEmpty: true }, function (celda, colNum) {
+            if (colNum > 5) return;
+            celda.border = BORDES_CELDA;
+            celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colorFila } };
+            celda.alignment = { vertical: 'middle', horizontal: colNum === 3 ? 'center' : 'left' };
+            if (colNum === 4 || colNum === 5) celda.numFmt = '"S/" #,##0.00';
+          });
+          indiceFilaDesc++;
+        });
+
+        const filaTotalDescuentos = hoja.addRow(['', '', '', 'Total', totalDescuentosProductos, '']);
+        filaTotalDescuentos.getCell(4).font = { bold: true };
+        filaTotalDescuentos.getCell(5).font = { bold: true, color: { argb: ROJO_EXCEL } };
+        filaTotalDescuentos.getCell(5).numFmt = '"S/" #,##0.00';
+      }
+
       const buffer = await libro.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = URL.createObjectURL(blob);
       const enlace = document.createElement('a');
       const nombreArchivoSeguro = nombreSeleccionado.replace(/[^a-zA-Z0-9À-ÿ \-_]/g, '').trim().replace(/\s+/g, '_');
       enlace.href = url;
-      enlace.download = `Historial_Asistencia_${nombreArchivoSeguro || 'colaborador'}.xlsx`;
+      enlace.download = `Pago_Asistencia_${nombreArchivoSeguro || 'colaborador'}.xlsx`;
       document.body.appendChild(enlace);
       enlace.click();
       document.body.removeChild(enlace);
@@ -7080,7 +7494,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     diario: document.getElementById('subvistaDiariaAsistencia'),
     record: document.getElementById('subvistaRecordAsistencia'),
     tareo: document.getElementById('subvistaTareoAsistencia'),
-    historial: document.getElementById('subvistaHistorialAsistencia'),
     dashboard: document.getElementById('subvistaDashboardAsistencia'),
     panelvisual: document.getElementById('subvistaPanelAsistencia')
   };
@@ -7095,10 +7508,6 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (nombre === 'record') renderRecordAsistencia();
     if (nombre === 'tareo') renderTareoPlaca();
     if (nombre === 'diario') renderAsistenciaDiaria();
-    if (nombre === 'historial') {
-      actualizarSelectHistorial();
-      renderHistorialColaborador();
-    }
     if (nombre === 'dashboard') renderDashboardAsistencia();
     if (nombre === 'panelvisual') renderPanelVisualAsistencia();
   }
@@ -9678,6 +10087,132 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     guardarEnNube('descuentos', descuentosPersonal);
   }
 
+  /* ---- Pago y Asistencia por Persona: monto x día (bono) configurado por colaborador ---- */
+  function cargarMontosPersonal() {
+    try {
+      const guardado = localStorage.getItem(CLAVE_MONTOS);
+      montosPersonal = guardado ? JSON.parse(guardado) : [];
+    } catch (e) {
+      montosPersonal = [];
+      mostrarAvisoStorage();
+    }
+  }
+
+  function guardarMontosPersonal() {
+    // Si hay nombres repetidos (por ejemplo, al importar el mismo Excel dos veces, o al agregar
+    // manualmente a alguien que ya tenía monto), se conserva el último monto indicado para cada
+    // colaborador en vez de duplicar filas.
+    const vistos = {};
+    const sinDuplicados = [];
+    montosPersonal.slice().reverse().forEach(function (m) {
+      const clave = (m.nombre || '').trim().toLowerCase();
+      if (!clave || vistos[clave]) return;
+      vistos[clave] = true;
+      sinDuplicados.unshift(m);
+    });
+    montosPersonal = sinDuplicados;
+    try {
+      localStorage.setItem(CLAVE_MONTOS, JSON.stringify(montosPersonal));
+    } catch (e) {
+      mostrarAvisoStorage();
+    }
+    guardarEnNube('montos', montosPersonal);
+  }
+
+  function buscarMontoPorNombre(nombre) {
+    const texto = (nombre || '').trim().toLowerCase();
+    if (!texto) return null;
+    return montosPersonal.find(function (m) { return (m.nombre || '').trim().toLowerCase() === texto; }) || null;
+  }
+
+  function renderTablaMontosPersonal() {
+    const cuerpo = document.getElementById('cuerpoMontosPersonal');
+    if (!cuerpo) return;
+    const ordenados = montosPersonal.slice().sort(function (a, b) { return (a.nombre || '').localeCompare(b.nombre || '', 'es'); });
+    cuerpo.innerHTML = ordenados.map(function (m) {
+      const idx = montosPersonal.indexOf(m);
+      return `
+        <tr>
+          <td>${escaparHtml(m.dni || '')}</td>
+          <td>${escaparHtml(m.nombre || '')}</td>
+          <td>S/ ${(parseFloat(m.montoDia) || 0).toFixed(2)}</td>
+          <td>
+            <div class="grupo-botones">
+              <button type="button" class="btn-secundario btn-editar-monto" data-idx="${idx}">Editar</button>
+              <button type="button" class="btn-eliminar btn-eliminar-monto" data-idx="${idx}">Eliminar</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    document.getElementById('contadorMontosPersonal').textContent =
+      `${montosPersonal.length} colaborador(es) con monto x día configurado`;
+  }
+
+  document.getElementById('btnAgregarMonto').addEventListener('click', function () {
+    const dniInput = document.getElementById('montoNuevoDni');
+    const nombreInput = document.getElementById('montoNuevoNombre');
+    const valorInput = document.getElementById('montoNuevoValor');
+    const dni = dniInput.value.trim();
+    const nombre = nombreInput.value.trim();
+    const valor = parseFloat(valorInput.value);
+
+    if (!nombre) { alert('Escribe el nombre del trabajador.'); return; }
+    if (isNaN(valor) || valor < 0) { alert('Escribe un monto x día válido.'); return; }
+
+    const existente = buscarMontoPorNombre(nombre);
+    if (existente) {
+      existente.dni = dni || existente.dni;
+      existente.montoDia = valor;
+    } else {
+      montosPersonal.push({ dni: dni, nombre: nombre, montoDia: valor });
+    }
+    guardarMontosPersonal();
+    renderTablaMontosPersonal();
+    renderHistorialColaborador();
+
+    dniInput.value = '';
+    nombreInput.value = '';
+    valorInput.value = '';
+  });
+
+  document.getElementById('cuerpoMontosPersonal').addEventListener('click', function (e) {
+    const btnEditar = e.target.closest('.btn-editar-monto');
+    if (btnEditar) {
+      const idx = parseInt(btnEditar.getAttribute('data-idx'), 10);
+      const m = montosPersonal[idx];
+      if (!m) return;
+      const nuevo = prompt(`Nuevo monto x día para "${m.nombre}" (S/):`, m.montoDia);
+      if (nuevo === null) return;
+      const valor = parseFloat(nuevo);
+      if (isNaN(valor) || valor < 0) { alert('Monto inválido.'); return; }
+      m.montoDia = valor;
+      guardarMontosPersonal();
+      renderTablaMontosPersonal();
+      renderHistorialColaborador();
+      return;
+    }
+    const btnEliminar = e.target.closest('.btn-eliminar-monto');
+    if (btnEliminar) {
+      const idx = parseInt(btnEliminar.getAttribute('data-idx'), 10);
+      const m = montosPersonal[idx];
+      if (!m) return;
+      if (confirm(`¿Eliminar el monto x día configurado para "${m.nombre}"?`)) {
+        montosPersonal.splice(idx, 1);
+        guardarMontosPersonal();
+        renderTablaMontosPersonal();
+        renderHistorialColaborador();
+      }
+    }
+  });
+
+  document.getElementById('btnImportarMontos').addEventListener('click', function () {
+    document.getElementById('inputImportarMontos').click();
+  });
+  document.getElementById('inputImportarMontos').addEventListener('change', function (e) {
+    procesarArchivoExcel(e.target.files[0], e.target, 'montos');
+  });
+
   /* ---- Catálogo de productos para descuento ---- */
   function renderCatalogoDescuentos(filtro) {
     const texto = (typeof filtro === 'string' ? filtro : document.getElementById('buscadorCatalogoDescuentos').value).toLowerCase().trim();
@@ -10591,6 +11126,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   renderFilasPersonasAdicionalesDescuento();
   actualizarValorTotalDescuento();
 
+  cargarMontosPersonal();
+  renderTablaMontosPersonal();
+  actualizarSelectHistorial();
+
   cargarEpp();
   poblarSelectItemsEpp();
   renderTablaEpp('');
@@ -10629,8 +11168,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const actualizado = buscarUsuario(usuarioActivo.usuario);
         if (actualizado) {
           usuarioActivo = actualizado;
-          document.getElementById('nombreUsuarioActivo').innerHTML =
-            escaparHtml(actualizado.usuario) + (actualizado.esAdmin ? ' <span class="badge-admin-nav">ADMIN</span>' : '');
+          document.getElementById('nombreUsuarioActivo').innerHTML = escaparHtml(actualizado.usuario) + badgeUsuarioActivo(actualizado);
           aplicarPermisosUI();
         }
       }
@@ -10698,6 +11236,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     function () { return descuentosPersonal; },
     function (v) { descuentosPersonal = v || []; },
     function () { renderTablaDescuentos(valorBuscador('buscadorDescuentos')); }
+  );
+
+  registrarSincronizacion('montos', CLAVE_MONTOS,
+    function () { return montosPersonal; },
+    function (v) { montosPersonal = v || []; },
+    function () { renderTablaMontosPersonal(); actualizarSelectHistorial(); renderHistorialColaborador(); }
   );
 
   registrarSincronizacion('epp', CLAVE_EPP,

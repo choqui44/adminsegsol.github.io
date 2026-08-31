@@ -1,72 +1,70 @@
 # SEGSOL — Sistema de Gestión de Personal
 
-Aplicación web de un solo archivo (HTML + CSS + JS embebidos) para la gestión operativa de personal: postulantes, registro de personal, asistencia diaria por rutas, cuadre de caja, mapas y rutas, liquidaciones de inventario, descuentos del personal y kardex/stock de EPP.
-
-No requiere backend propio: todo corre en el navegador. Los datos se guardan en la nube (Firebase Firestore) para que **todas las computadoras vean los mismos datos en tiempo real**, con un respaldo local (`localStorage`) que permite seguir trabajando sin internet y ponerse al día automáticamente en cuanto vuelve la conexión.
+Aplicación web de un solo archivo (`index.html`) para gestionar personal, asistencia, pagos, caja chica, mapas de rutas, liquidaciones, descuentos y EPP. No necesita servidor ni instalación: se abre en el navegador y funciona.
 
 ## Cómo usarlo
 
-1. Descarga `index.html`.
-2. Ábrelo directamente en el navegador (doble clic), o publícalo con GitHub Pages / cualquier hosting estático (recomendado, ver más abajo).
-3. Inicia sesión con el usuario administrador por defecto:
-   - **Usuario:** `bryantt2`
-   - **Contraseña:** `bryan_04`
-4. Desde el panel de **Administración** puedes crear más usuarios y elegir qué módulos puede ver cada uno.
-5. En la barra de navegación, junto al nombre del usuario, aparece un indicador de sincronización:
-   - **☁️ Sincronizado** — conectado a la nube, los cambios se comparten en vivo con las demás computadoras.
-   - **⚠️ Sin conexión con la nube** — sin internet, sin acceso a Firebase, o falta terminar la configuración (ver sección de solución de problemas); la app sigue funcionando con los últimos datos conocidos localmente.
+1. Abre `index.html` en Chrome (recomendado) o cualquier navegador moderno. Para que la sincronización en la nube funcione, el archivo debe abrirse desde una dirección `https://` (por ejemplo, GitHub Pages) — ver más abajo.
+2. Inicia sesión. Usuario administrador por defecto (se crea automáticamente la primera vez que se abre la app en un dispositivo sin datos):
+   - Usuario: `bryantt2`
+   - Contraseña: `bryan_04`
+3. Cambia esa contraseña por defecto en cuanto puedas, desde **Administración → Cambiar contraseña**.
 
-> ⚠️ El login y la sincronización son controles pensados para organizar el acceso y el trabajo en equipo, **no son seguridad de nivel bancario**: las contraseñas se guardan en texto plano y cualquier persona con las credenciales del proyecto de Firebase (incluidas en este mismo archivo, como es normal en apps web) y algo de conocimiento técnico podría, en teoría, leer o escribir en la base de datos. Para el uso que le da un equipo interno con el archivo compartido de forma privada es un nivel de protección razonable, pero no lo uses para datos que no podrían filtrarse bajo ninguna circunstancia.
+## Sincronización en la nube (Firebase / Firestore)
 
-## Los datos NO viven en este archivo — por eso sobreviven a las actualizaciones
+La app usa Firebase Firestore para que los cambios hechos en una computadora se reflejen en las demás en tiempo real. El estado de la conexión se muestra en la barra superior:
 
-Toda la información que carga el equipo (personal, asistencia, descuentos, EPP, etc.) se guarda en Firebase Firestore, **no dentro del archivo HTML**. El archivo solo contiene el código de la aplicación, así que puedes reemplazar `index.html` por una versión nueva todas las veces que quieras y la información cargada no se borra, siempre que:
+- ☁️ **Sincronizado** — todo funcionando, los cambios se comparten con las demás computadoras.
+- ⏳ **Conectando…** — se está estableciendo la conexión (normal justo al abrir la página).
+- ⚠️ **Sincronización en la nube no disponible en este navegador** — el SDK de Firebase no cargó (revisa tu conexión a internet, o si el navegador está bloqueando `gstatic.com`).
+- ⚠️ **Sin conexión con la nube (trabajando solo en este dispositivo)** — Firebase cargó pero no se pudo autenticar. Revisa:
+  1. Que el proveedor **Anonymous** esté habilitado en Firebase Console → Authentication → Sign-in method.
+  2. Que estés abriendo la app desde una URL `https://` real (por ejemplo GitHub Pages), no con doble clic desde `file://` — algunos navegadores bloquean la autenticación en ese modo.
 
-1. No cambies el bloque `firebaseConfig` dentro del archivo (busca `const firebaseConfig = {` cerca del inicio del script principal).
-2. No cambies los nombres de colección/documento que usa el código (`segsol/registros`, `segsol/asistencias`, `segsol/usuarios`, etc.).
+Sin conexión a la nube, la app sigue funcionando normalmente guardando todo en este navegador (localStorage); en cuanto vuelva la conexión, se sincroniza sola.
 
-### Si sigues viendo "⚠️ Sin conexión con la nube"
+### Los datos NO viven en este archivo
 
-1. Ve a **console.firebase.google.com** → proyecto `segsol-3b6b4` → **Authentication → Sign-in method** → confirma que **Anonymous** está **Habilitado**.
-2. Prueba abriendo la app desde una URL real (GitHub Pages) en vez de abrir el archivo local con doble clic.
-3. Revisa la consola del navegador (F12 → Console) para ver el error exacto si el problema persiste.
+Toda la información (personal, asistencia, pagos, descuentos, etc.) vive en Firestore, no en `index.html`. Esto significa que puedes reemplazar/actualizar este archivo en tu repositorio de GitHub cuantas veces quieras (para agregar mejoras) **sin perder ningún dato**, siempre que:
 
-## Publicar con GitHub Pages (recomendado)
+1. No cambies el `firebaseConfig` (las credenciales del proyecto de Firebase).
+2. No cambies los nombres de las colecciones/documentos internos que usa la app para guardar cada módulo.
 
-1. Sube este repositorio a GitHub.
-2. Ve a **Settings → Pages**.
-3. En "Source" elige la rama principal (`main`) y la carpeta raíz (`/`).
-4. GitHub Pages servirá automáticamente `index.html` en la URL que te asigne (`https://tuusuario.github.io/turepo/`).
-5. Usa siempre esa URL en vez del archivo local — es más estable para la sincronización en la nube.
+## Publicar en GitHub Pages
+
+1. Sube este archivo a un repositorio de GitHub (puede ser privado).
+2. Ve a **Settings → Pages**, elige la rama (`main`) y la carpeta raíz.
+3. GitHub te dará una URL `https://tuusuario.github.io/turepo/` — esa es la URL que debes compartir con tu equipo.
+
+## Seguridad — cosas importantes antes de compartir el link
+
+Esta es una aplicación sin servidor propio (todo corre en el navegador de cada persona), así que su nivel de seguridad tiene límites que debes conocer antes de compartir el enlace con tu equipo:
+
+- **Las contraseñas se guardan como hash SHA-256** (no en texto plano) desde esta versión. Aun así, cualquier persona con el link y conocimientos técnicos podría, en teoría, leer o escribir directamente en la base de datos de Firestore usando la configuración que está en el propio archivo — eso es una limitación inherente a cualquier app 100% cliente sin backend propio.
+- Para reducir ese riesgo:
+  - Usa **contraseñas únicas y no obvias** para cada usuario, especialmente para las cuentas de Administración.
+  - No compartas el link públicamente (redes sociales, grupos abiertos); compártelo solo con las personas que deben usarlo.
+  - Revisa periódicamente, en Firebase Console → Firestore → Reglas, que la regla siga siendo `allow read, write: if request.auth != null;` (requiere estar autenticado, aunque sea de forma anónima).
+  - Si en algún momento necesitas seguridad más estricta (por ejemplo, que cada colaborador solo pueda leer/escribir su propio documento incluso manipulando la consola del navegador), eso requiere reglas de Firestore basadas en un backend/Cloud Functions con roles reales — fuera del alcance de una app sin servidor. Avísame si quieres que lo evaluemos.
+- Las **cuentas de colaborador** (ver abajo) ayudan mucho en la práctica: cada colaborador solo ve su propio pago, descuentos y asistencia desde la interfaz, y no tiene ningún botón de edición disponible.
 
 ## Módulos incluidos
 
-- **Registro de Postulantes** — seguimiento de postulantes a personal.
-- **Registro de Personal** — ficha de cada colaborador (nombre, cargo, datos).
-- **Asistencia del Personal** — asistencia diaria organizada por rutas y placas, con:
-  - **Récord de asistencia por persona**: matriz mensual (✓/F/J/T por día) exportable a Excel con diseño.
-  - **Tareo por Placa**: qué placa usó cada colaborador cada día del mes, coloreada por placa para ver de un vistazo cómo están armadas las tripulaciones (domingos resaltados en rojo), exportable a Excel con diseño.
-  - **Historial por colaborador**: detalle individual también exportable a Excel con diseño.
-- **Cuadre de Caja** — control de caja diaria.
-- **Mapas y Rutas** — importación y organización de rutas.
-- **Liquidaciones y Descuentos**
-  - Liquidación de inventario (importación de PDF).
-  - Descuentos del Personal: catálogo de productos, registro de descuentos ligados a la asistencia del día (ruta/placa/puesto automáticos), con opción de dividir un descuento entre varias personas (cada una con su propio puesto autocompletado) y exportación a Excel.
-- **Kardex de EPP** — historial de entregas y stock de equipos de protección personal, con alertas de stock mínimo.
-- **Administración** — creación de usuarios y permisos por módulo.
+- **Registro de Postulantes**: candidatos del proceso de reclutamiento, con dashboard de reclutamiento.
+- **Registro de Personal**: base de datos maestra del personal.
+- **Asistencia del Personal**: asistencia diaria por ruta/placa, registro de inasistencias, Récord de asistencia por persona (con exportación a Excel con diseño), Tareo por Placa (tripulaciones por camión/placa, día a día, con exportación a Excel), Dashboard de Inasistencias y Panel de Indicadores.
+- **Pago y Asistencia por Persona** (nuevo): para cada colaborador, calcula su bono según su "monto x día" configurado (importable desde Excel con columnas DNI / Nombre del trabajador / Monto x día). Cada día con **falta injustificada** descuenta el monto x día del bono; los días con **falta justificada** o **tardanza** no se descuentan. También muestra los descuentos del personal de esa persona y su historial completo de asistencia, con exportación a Excel con diseño (secciones de Pago, Resumen de asistencia, Placas y rutas, Historial completo y Descuentos del personal).
+- **Cuadre de Caja**: ingresos y egresos de caja chica.
+- **Mapas y Seguimiento de Rutas**: ubicación de clientes desde tu Excel de hoja de ruta.
+- **Liquidaciones y Descuentos**: importación de PDF de liquidación de inventario por camión, y Descuentos del Personal (con división entre varias personas y puesto/rol de cada una).
+- **Kardex de EPP**: entrega de equipos de protección personal y kardex por colaborador.
+- **Administración**: crear usuarios, definir contraseñas (guardadas como hash) y elegir a qué apartados tiene acceso cada uno. Incluye la opción de crear **cuentas de colaborador**: vinculadas a un colaborador puntual, solo pueden ver "Pago y Asistencia por Persona" y, dentro de ese apartado, únicamente su propio pago, sus descuentos y su asistencia — sin poder editar nada.
 
-## Importación/Exportación
+## Sobre las cuentas de colaborador
 
-Varios módulos permiten importar datos desde Excel (`.xlsx`) y exportar tablas a Excel. Las exportaciones simples usan [SheetJS](https://sheetjs.com/); las exportaciones con diseño (colores, encabezados resaltados, resumen) como el récord, el tareo por placa y el historial de asistencia usan [ExcelJS](https://github.com/exceljs/exceljs). Ambas están embebidas en el archivo.
+Desde **Administración → Crear usuario**, marca la casilla **"Cuenta de colaborador (solo ve su propio pago)"** y elige a qué colaborador se vincula (de la lista de Registro de Personal / Asistencia). Esa cuenta:
 
-## Estructura del repositorio
-
-```
-index.html   → aplicación completa (HTML + CSS + JS), autocontenida
-```
-
-## Notas técnicas
-
-- Un único archivo HTML: no hay build step. Las únicas dependencias externas por red son las librerías de Firebase (cargadas desde su CDN oficial vía `<script src>`, necesarias para la sincronización en la nube); SheetJS, Chart.js y ExcelJS van embebidas directamente en el archivo.
-- Persistencia dual: Firebase Firestore como base de datos compartida en tiempo real, con `localStorage` como caché/respaldo local para el modo sin conexión.
-- Sin librerías de framework: JavaScript vanilla.
+- Al iniciar sesión, entra directo a **Pago y Asistencia por Persona**.
+- En el menú, solo ve **Inicio** y **Pago y Asistencia por Persona** (los demás apartados quedan ocultos, y también bloqueados si se intenta entrar por otra vía).
+- Dentro de Pago y Asistencia, el selector de colaborador queda fijo en su propio nombre (no puede ver el pago de otra persona), y el panel de gestión de montos x día (importar/editar) queda oculto — solo puede **ver**, nunca editar.
+- Puede exportar a Excel su propio detalle de pago, descuentos y asistencia.

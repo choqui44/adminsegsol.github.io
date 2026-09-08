@@ -10119,9 +10119,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           volumenRechazado = Math.max(0, volumenProgramado - volumenEntregado);
         } else if (statusRdRechazado || volumenRechazado > 0) {
           estado = 'Rechazado';
-          // Si el status ya dice "Rechazado" pero el volumen rechazado vino en 0, se toma como
-          // rechazado el volumen programado completo (rechazo total del pedido).
-          if (volumenRechazado <= 0) volumenRechazado = volumenProgramado;
+          // Un pedido totalmente rechazado significa que no se entregó nada de lo programado: el
+          // volumen rechazado y el volumen programado tienen que ser el mismo número (no puede
+          // "rechazarse" más hl de los que estaban programados, ni menos). Se toma como fuente de
+          // verdad el volumen rechazado, que es el que reporta directamente el sistema de rutas para
+          // esa visita; si por algún problema del dato ese campo vino en 0, se usa el programado.
+          if (volumenRechazado > 0) volumenProgramado = volumenRechazado;
+          else volumenRechazado = volumenProgramado;
         } else if (rd.status === 'CONCLUDED') {
           estado = 'Entregado';
         } else {

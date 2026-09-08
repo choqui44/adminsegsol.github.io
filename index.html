@@ -10098,7 +10098,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       let volumenProgramado = 0, volumenEntregado = 0, volumenRechazado = 0, estado = 'Pendiente', motivoRechazo = '';
 
       if (rd) {
-        volumenProgramado = (rd.volumenProgramado != null && rd.volumenProgramado > 0) ? rd.volumenProgramado : ((hr && hr.hlProgramado) || 0);
+        // El volumen programado tiene que salir del archivo de la Hoja del BEES (columna
+        // Hl_Programado): es la fuente de lo que realmente se planificó para ese cliente. El propio
+        // volumen que trae la Hoja de Ruta no siempre refleja el total programado (a veces viene
+        // recortado o en 0 por cómo se generó ese reporte), así que solo se usa como respaldo cuando
+        // no hay ningún dato de la Hoja del BEES para ese cliente y esa fecha.
+        volumenProgramado = (hr && hr.hlProgramado != null && hr.hlProgramado > 0) ? hr.hlProgramado : (rd.volumenProgramado || 0);
         volumenEntregado = rd.volumenEntregado || 0;
         volumenRechazado = rd.volumenRechazado || 0;
         // El "status" que trae la Hoja de Ruta (columna STATUS del archivo routesdata) es la fuente
@@ -10120,12 +10125,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         } else if (statusRdRechazado || volumenRechazado > 0) {
           estado = 'Rechazado';
           // Un pedido totalmente rechazado significa que no se entregó nada de lo programado: el
-          // volumen rechazado y el volumen programado tienen que ser el mismo número (no puede
-          // "rechazarse" más hl de los que estaban programados, ni menos). Se toma como fuente de
-          // verdad el volumen rechazado, que es el que reporta directamente el sistema de rutas para
-          // esa visita; si por algún problema del dato ese campo vino en 0, se usa el programado.
-          if (volumenRechazado > 0) volumenProgramado = volumenRechazado;
-          else volumenRechazado = volumenProgramado;
+          // volumen rechazado tiene que ser exactamente el volumen programado (que ya sale de la
+          // Hoja del BEES), no el número aparte que a veces trae la Hoja de Ruta.
+          volumenRechazado = volumenProgramado;
         } else if (rd.status === 'CONCLUDED') {
           estado = 'Entregado';
         } else {
@@ -10135,10 +10137,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       } else if (hr) {
         // Si el cliente aparece en la Hoja del BEES pero NO tiene ningún registro en la Hoja de
         // Ruta para esa misma fecha, quiere decir que no se ejecutó/registró en el sistema de
-        // ruta: está "Desplanificado". No se calcula entrega ni rechazo a partir de la Hoja del
-        // BEES sola (esa hoja solo trae lo planificado, no el resultado real de la visita) — lo
-        // que manda para saber si se entregó, rechazó o quedó parcial es la Hoja de Ruta.
-        volumenProgramado = hr.hlProgramado || 0;
+        // ruta: está "Desplanificado". No cuenta como volumen entregado, rechazado NI programado
+        // -queda todo en 0-, para que no afecte el MR% Volumen ni ningún otro cálculo de volumen:
+        // un cliente desplanificado no tuvo ninguna visita real, así que no debe sumar ni restar
+        // nada en esas cuentas (solo se sigue contando como cliente, para el MR% de pedido).
         estado = 'Desplanificado';
         motivoRechazo = hr.motivoRechazo || '';
       }

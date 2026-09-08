@@ -4720,6 +4720,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   let dbNube = null;
   let nubeAutenticada = false;
   const registrosSincronizacion = []; // { nombreDoc, obtenerValor, fijarValor, alRecibirCambio }
+  const registrosSincronizacionFragmentada = []; // igual, pero para listas grandes que se guardan repartidas en varios documentos
+  const ultimosNumFragmentosNube = {}; // nombreDoc -> cuántos documentos de fragmento se usaron la última vez (para poder borrar los que sobren)
   let aplicandoCambioRemoto = false; // true mientras se aplica un cambio que llegó de otra computadora
 
   const badgeSync = document.getElementById('badgeSyncFirestore');
@@ -4756,6 +4758,72 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
   }
 
+  // Firestore no permite documentos de más de 1 MB. Algunas listas (como el historial de Avance de
+  // Rutas, que va acumulando cientos o miles de registros por cada día que se importa) pueden superar
+  // ese límite y entonces guardarEnNube() falla silenciosamente en segundo plano y se pierde la
+  // conexión con la nube. Para esas listas se usa este mecanismo "por fragmentos": se reparte el
+  // arreglo en varios documentos de máximo ~700 KB cada uno (dejando margen bajo el límite real de
+  // Firestore), más un documento "_meta" que indica cuántos fragmentos hay.
+  const TAMANO_MAX_FRAGMENTO_NUBE = 700000; // bytes aproximados de JSON por documento de fragmento
+  function dividirEnFragmentosParaNube(arreglo) {
+    const fragmentos = [];
+    let actual = [];
+    let tamanoActual = 2; // '[]'
+    (arreglo || []).forEach(function (item) {
+      const tamanoItem = JSON.stringify(item).length + 1;
+      if (actual.length > 0 && tamanoActual + tamanoItem > TAMANO_MAX_FRAGMENTO_NUBE) {
+        fragmentos.push(actual);
+        actual = [];
+        tamanoActual = 2;
+      }
+      actual.push(item);
+      tamanoActual += tamanoItem;
+    });
+    if (actual.length > 0 || fragmentos.length === 0) fragmentos.push(actual);
+    return fragmentos;
+  }
+
+  // Cada módulo con listas grandes llama a esto en vez de guardarEnNube(). Guarda todo en un solo
+  // lote (todo o nada) para no dejar fragmentos a medio escribir si algo falla a mitad de camino.
+  function guardarEnNubeFragmentada(nombreDoc, arregloValor) {
+    if (!nubeDisponible || !dbNube || !nubeAutenticada || aplicandoCambioRemoto) return;
+    const fragmentos = dividirEnFragmentosParaNube(arregloValor);
+    const numFragmentos = fragmentos.length;
+    const coleccion = dbNube.collection('segsol');
+    const lote = dbNube.batch();
+    lote.set(coleccion.doc(nombreDoc + '_meta'), {
+      numFragmentos: numFragmentos,
+      actualizado: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    fragmentos.forEach(function (trozo, i) {
+      lote.set(coleccion.doc(nombreDoc + '_frag_' + i), {
+        data: trozo,
+        actualizado: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+    // Si esta vez hay menos fragmentos que la vez anterior (por ejemplo, se vació parte del
+    // historial), se borran los documentos de fragmento que ya no corresponden a nada.
+    const numFragmentosAnterior = ultimosNumFragmentosNube[nombreDoc] || 0;
+    for (let i = numFragmentos; i < numFragmentosAnterior; i++) {
+      lote.delete(coleccion.doc(nombreDoc + '_frag_' + i));
+    }
+    ultimosNumFragmentosNube[nombreDoc] = numFragmentos;
+    lote.commit().catch(function (err) {
+      console.error('No se pudo guardar en la nube (' + nombreDoc + '):', err);
+      actualizarBadgeSync('sync-error', '⚠️ Sin conexión con la nube');
+    });
+  }
+
+  function registrarSincronizacionFragmentada(nombreDoc, claveLocalStorage, obtenerValor, fijarValor, alRecibirCambio) {
+    registrosSincronizacionFragmentada.push({
+      nombreDoc: nombreDoc,
+      claveLocalStorage: claveLocalStorage,
+      obtenerValor: obtenerValor,
+      fijarValor: fijarValor,
+      alRecibirCambio: alRecibirCambio
+    });
+  }
+
   function activarEscuchasNube() {
     registrosSincronizacion.forEach(function (r) {
       dbNube.collection('segsol').doc(r.nombreDoc).onSnapshot(function (snap) {
@@ -4776,6 +4844,43 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
       }, function (err) {
         console.error('Error escuchando cambios de "' + r.nombreDoc + '":', err);
+        actualizarBadgeSync('sync-error', '⚠️ Sin conexión con la nube');
+      });
+    });
+
+    registrosSincronizacionFragmentada.forEach(function (r) {
+      dbNube.collection('segsol').doc(r.nombreDoc + '_meta').onSnapshot(function (snapMeta) {
+        if (!snapMeta.exists) return;
+        const meta = snapMeta.data();
+        const numFragmentos = (meta && meta.numFragmentos) || 0;
+        ultimosNumFragmentosNube[r.nombreDoc] = numFragmentos;
+        const coleccion = dbNube.collection('segsol');
+        const promesas = [];
+        for (let i = 0; i < numFragmentos; i++) promesas.push(coleccion.doc(r.nombreDoc + '_frag_' + i).get());
+        Promise.all(promesas).then(function (snapsFragmentos) {
+          let combinado = [];
+          snapsFragmentos.forEach(function (s) {
+            const d = s.exists ? s.data() : null;
+            if (d && Array.isArray(d.data)) combinado = combinado.concat(d.data);
+          });
+          aplicandoCambioRemoto = true;
+          try {
+            r.fijarValor(combinado);
+            if (r.claveLocalStorage) {
+              try { localStorage.setItem(r.claveLocalStorage, JSON.stringify(combinado)); } catch (e) { /* sin almacenamiento local: seguimos solo en memoria */ }
+            }
+            if (typeof r.alRecibirCambio === 'function') r.alRecibirCambio();
+          } catch (e) {
+            console.error('Error aplicando cambio recibido de la nube (' + r.nombreDoc + '):', e);
+          } finally {
+            aplicandoCambioRemoto = false;
+          }
+        }).catch(function (err) {
+          console.error('Error leyendo fragmentos de "' + r.nombreDoc + '":', err);
+          actualizarBadgeSync('sync-error', '⚠️ Sin conexión con la nube');
+        });
+      }, function (err) {
+        console.error('Error escuchando cambios de "' + r.nombreDoc + '_meta":', err);
         actualizarBadgeSync('sync-error', '⚠️ Sin conexión con la nube');
       });
     });
@@ -9504,7 +9609,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     } catch (e) {
       if (storageDisponible) mostrarAvisoStorage();
     }
-    guardarEnNube('avanceRD', avanceRD);
+    guardarEnNubeFragmentada('avanceRD', avanceRD);
   }
   function cargarAvanceHR() {
     try {
@@ -9521,7 +9626,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     } catch (e) {
       if (storageDisponible) mostrarAvisoStorage();
     }
-    guardarEnNube('avanceHR', avanceHR);
+    guardarEnNubeFragmentada('avanceHR', avanceHR);
   }
   function cargarDiasCerradosAvance() {
     try {
@@ -13287,13 +13392,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     function () { renderTablaMapa(valorBuscador('buscadorMapa')); poblarFiltrosMapa(); }
   );
 
-  registrarSincronizacion('avanceRD', CLAVE_AVANCE_RD,
+  registrarSincronizacionFragmentada('avanceRD', CLAVE_AVANCE_RD,
     function () { return avanceRD; },
     function (v) { avanceRD = v || []; },
     function () { actualizarInfoImportacionAvance(); poblarFiltroRutaAvance(); poblarFiltroFechaAvance(); poblarSelectCerrarDiaAvance(); renderAvanceRutas(); }
   );
 
-  registrarSincronizacion('avanceHR', CLAVE_AVANCE_HR,
+  registrarSincronizacionFragmentada('avanceHR', CLAVE_AVANCE_HR,
     function () { return avanceHR; },
     function (v) { avanceHR = v || []; },
     function () { actualizarInfoImportacionAvance(); poblarFiltroRutaAvance(); poblarFiltroFechaAvance(); poblarSelectCerrarDiaAvance(); renderAvanceRutas(); }

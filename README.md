@@ -1,71 +1,104 @@
 # SEGSOL — Sistema de Gestión de Personal
 
-Aplicación web de un solo archivo (`index.html`) para gestionar personal, asistencia, pagos, caja chica, mapas de rutas, liquidaciones, descuentos y EPP. No necesita servidor ni instalación: se abre en el navegador y funciona.
+Aplicación web de un solo archivo (`index.html`) para gestionar personal, asistencia, descuentos, caja chica, rutas, liquidaciones y EPP. Funciona completamente en el navegador (sin backend propio) y guarda todo en `localStorage`, con sincronización opcional en la nube vía Firebase Firestore para que varias computadoras vean los mismos datos en tiempo real.
 
-## Cómo usarlo
+## Cómo usarla
 
-1. Abre `index.html` en Chrome (recomendado) o cualquier navegador moderno. Para que la sincronización en la nube funcione, el archivo debe abrirse desde una dirección `https://` (por ejemplo, GitHub Pages) — ver más abajo.
-2. Inicia sesión. Usuario administrador por defecto (se crea automáticamente la primera vez que se abre la app en un dispositivo sin datos):
-   - Usuario: `bryantt2`
-   - Contraseña: `bryan_04`
-3. Cambia esa contraseña por defecto en cuanto puedas, desde **Administración → Cambiar contraseña**.
+1. Descarga `index.html` (o publícalo con GitHub Pages, ver más abajo) y ábrelo en Chrome, Edge o Firefox.
+2. Inicia sesión con el usuario administrador por defecto:
+   - **Usuario:** `bryantt2`
+   - **Contraseña:** `bryan_04`
+3. Desde **Administración** puedes crear más usuarios, definir su contraseña y elegir a qué apartados tiene acceso cada uno (o si es otro administrador).
 
-## Sincronización en la nube (Firebase / Firestore)
+Todo lo que registres (personal, asistencia, descuentos, caja, etc.) se guarda automáticamente en el navegador. Si tienes conexión a internet, también se sincroniza con la nube (ver la sección de Firebase más abajo) para que el mismo negocio pueda verse desde varias computadoras.
 
-La app usa Firebase Firestore para que los cambios hechos en una computadora se reflejen en las demás en tiempo real. El estado de la conexión se muestra en la barra superior:
+## Menú lateral y pantalla de Inicio
 
-- ☁️ **Sincronizado** — todo funcionando, los cambios se comparten con las demás computadoras.
-- ⏳ **Conectando…** — se está estableciendo la conexión (normal justo al abrir la página).
-- ⚠️ **Sincronización en la nube no disponible en este navegador** — el SDK de Firebase no cargó (revisa tu conexión a internet, o si el navegador está bloqueando `gstatic.com`).
-- ⚠️ **Sin conexión con la nube (trabajando solo en este dispositivo)** — Firebase cargó pero no se pudo autenticar. Revisa:
-  1. Que el proveedor **Anonymous** esté habilitado en Firebase Console → Authentication → Sign-in method.
-  2. Que estés abriendo la app desde una URL `https://` real (por ejemplo GitHub Pages), no con doble clic desde `file://` — algunos navegadores bloquean la autenticación en ese modo.
+La navegación es un menú lateral oscuro (columna fija a la izquierda) con:
 
-Sin conexión a la nube, la app sigue funcionando normalmente guardando todo en este navegador (localStorage); en cuanto vuelva la conexión, se sincroniza sola.
+- Tu usuario y avatar arriba, junto con el estado de sincronización en la nube.
+- Un grupo **OPCIONES** con todos los apartados a los que tienes acceso.
+- Un grupo **SESIÓN** al final, con el botón para cerrar sesión.
 
-### Los datos NO viven en este archivo
+En pantallas angostas (celular/tablet) el menú se oculta y aparece un botón de hamburguesa (☰) arriba a la izquierda para abrirlo; toca fuera del menú o elige una opción para cerrarlo de nuevo.
 
-Toda la información (personal, asistencia, pagos, descuentos, etc.) vive en Firestore, no en `index.html`. Esto significa que puedes reemplazar/actualizar este archivo en tu repositorio de GitHub cuantas veces quieras (para agregar mejoras) **sin perder ningún dato**, siempre que:
-
-1. No cambies el `firebaseConfig` (las credenciales del proyecto de Firebase).
-2. No cambies los nombres de las colecciones/documentos internos que usa la app para guardar cada módulo.
-
-## Publicar en GitHub Pages
-
-1. Sube este archivo a un repositorio de GitHub (puede ser privado).
-2. Ve a **Settings → Pages**, elige la rama (`main`) y la carpeta raíz.
-3. GitHub te dará una URL `https://tuusuario.github.io/turepo/` — esa es la URL que debes compartir con tu equipo.
-
-## Seguridad — cosas importantes antes de compartir el link
-
-Esta es una aplicación sin servidor propio (todo corre en el navegador de cada persona), así que su nivel de seguridad tiene límites que debes conocer antes de compartir el enlace con tu equipo:
-
-- **Las contraseñas se guardan como hash SHA-256** (no en texto plano). Aun así, cualquier persona con el link y conocimientos técnicos podría, en teoría, leer o escribir directamente en la base de datos de Firestore usando la configuración que está en el propio archivo — eso es una limitación inherente a cualquier app 100% cliente sin backend propio.
-- Para reducir ese riesgo:
-  - Usa **contraseñas únicas y no obvias** para cada usuario, especialmente para las cuentas de Administración.
-  - No compartas el link públicamente (redes sociales, grupos abiertos); compártelo solo con las personas que deben usarlo.
-  - Revisa periódicamente, en Firebase Console → Firestore → Reglas, que la regla siga siendo `allow read, write: if request.auth != null;` (requiere estar autenticado, aunque sea de forma anónima).
-  - Si en algún momento necesitas seguridad más estricta (por ejemplo, que cada colaborador solo pueda leer/escribir su propio documento incluso manipulando la consola del navegador), eso requiere reglas de Firestore basadas en un backend/Cloud Functions con roles reales — fuera del alcance de una app sin servidor. Avísame si quieres que lo evaluemos.
-- Las **cuentas de colaborador** (ver abajo) ayudan mucho en la práctica: cada colaborador solo ve su propio pago, descuentos y asistencia desde la interfaz, y no tiene ningún botón de edición disponible.
+La pantalla de **Inicio** muestra primero un resumen rápido (colaboradores registrados, asistencias del día, postulantes pendientes y saldo de caja actual) y luego los apartados agrupados por tema: **Gestión de Personal**, **Pagos y Caja**, **Operaciones y Logística** y **Administración**. Si un usuario no tiene permiso para ningún apartado de un grupo, ese grupo completo se oculta en vez de mostrarse vacío.
 
 ## Módulos incluidos
 
-- **Registro de Postulantes**: candidatos del proceso de reclutamiento, con dashboard de reclutamiento.
-- **Registro de Personal**: base de datos maestra del personal.
-- **Asistencia del Personal**: asistencia diaria por ruta/placa, registro de inasistencias, Récord de asistencia por persona (con exportación a Excel con diseño), Tareo por Placa (tripulaciones por camión/placa, día a día, con exportación a Excel), Dashboard de Inasistencias y Panel de Indicadores.
-- **Pago y Asistencia por Persona**: para cada colaborador, calcula su bono según su "monto x día" configurado (importable desde Excel con columnas DNI / Nombre del trabajador / Monto x día, o manual). Cada día con **falta injustificada** descuenta el monto x día del bono; los días con **falta justificada** o **tardanza** no se descuentan. El monto de cada colaborador se busca primero por nombre y, si no se encuentra (por ejemplo, el nombre está escrito distinto en el Excel importado), se busca automáticamente por **DNI** cruzando con Registro de Personal. También muestra los descuentos del personal de esa persona y su historial completo de asistencia, con exportación a Excel con diseño (secciones de Pago, Resumen de asistencia, Placas y rutas, Historial completo, Descuentos del personal y Días con función especial).
-  - **Funciones y montos especiales**: para el caso de un colaborador que, un día puntual, sale cumpliendo otra función a la habitual (por ejemplo, un auxiliar que ese día salió de reparto). Se define el monto x día de cada función (ej. "Reparto" = S/ 100), y luego se le asigna esa función a la persona en ese día específico — ese día se paga con el monto de la función en vez de su monto x día habitual, y queda reflejado tanto en pantalla como en el Excel exportado.
-- **Cuadre de Caja**: ingresos y egresos de caja chica.
-- **Mapas y Seguimiento de Rutas**: ubicación de clientes desde tu Excel de hoja de ruta.
-- **Liquidaciones y Descuentos**: importación de PDF de liquidación de inventario por camión, y Descuentos del Personal (con división entre varias personas y puesto/rol de cada una).
-- **Kardex de EPP**: entrega de equipos de protección personal y kardex por colaborador.
-- **Administración**: crear usuarios, definir contraseñas (guardadas como hash) y elegir a qué apartados tiene acceso cada uno. Incluye la opción de crear **cuentas de colaborador**: vinculadas a un colaborador puntual, solo pueden ver "Pago y Asistencia por Persona" y, dentro de ese apartado, únicamente su propio pago, sus descuentos y su asistencia — sin poder editar nada.
+- **Registro de Postulantes**: candidatos del proceso de reclutamiento, con estado admitido/no admitido/pendiente y un dashboard de reclutamiento.
+- **Registro de Personal**: base de datos maestra del personal contratado (datos laborales, personales, de nacimiento, domicilio, contacto y referencia).
+- **Asistencia del Personal**: registro diario de asistencia por ruta y placa, con tareo por placa y récord de asistencia.
+- **Asistencia y Descuentos por Persona**: consulta, para cada colaborador y en un rango de fechas, su récord de asistencia (asistencias, faltas, faltas justificadas, tardanzas, % de asistencia, placas y rutas en las que salió) y sus descuentos del personal, con el total descontado. Todo se puede exportar a Excel.
+- **Cuadre de Caja**: ingresos y egresos de caja chica, con cuadre y saldo acumulado.
+- **Mapas y Seguimiento de Rutas**: visualiza en un mapa la ubicación de tus clientes a partir de tu Excel de hoja de ruta, con filtros por ruta, viaje y otros campos, y una vista de avance de rutas con su propio **Dashboard MR** (ver más abajo).
+- **Liquidaciones y Descuento del Personal**: importa el PDF de liquidación de inventario de cada camión y controla los descuentos del personal.
+- **Kardex de Entrega de EPP**: registra la entrega de equipos de protección personal a cada colaborador y consulta su kardex individual, con control de stock y mínimos.
+- **Administración**: crea usuarios, define contraseñas y permisos por apartado.
 
 ## Sobre las cuentas de colaborador
 
-Desde **Administración → Crear usuario**, marca la casilla **"Cuenta de colaborador (solo ve su propio pago)"** y elige a qué colaborador se vincula (de la lista de Registro de Personal / Asistencia). Esa cuenta:
+Desde Administración también puedes crear una **cuenta de colaborador**, vinculada a una persona puntual del Registro de Personal. Ese tipo de cuenta:
 
-- Al iniciar sesión, entra directo a **Pago y Asistencia por Persona**.
-- En el menú, solo ve **Inicio** y **Pago y Asistencia por Persona** (los demás apartados quedan ocultos, y también bloqueados si se intenta entrar por otra vía).
-- Dentro de Pago y Asistencia, el selector de colaborador queda fijo en su propio nombre (no puede ver el pago de otra persona), y los paneles de gestión (montos x día, funciones y montos especiales) quedan ocultos — solo puede **ver**, nunca editar.
-- Puede exportar a Excel su propio detalle de pago, descuentos y asistencia.
+- Entra directo al apartado **Asistencia y Descuentos por Persona** (no ve la pantalla de Inicio ni el resto de apartados).
+- Solo puede consultar su propia información — no puede ver la asistencia ni los descuentos de otros colaboradores.
+- No puede editar nada en ese apartado.
+
+Esto permite darle acceso de solo consulta a un colaborador para que vea su propia asistencia y sus descuentos, sin exponerle el resto del sistema.
+
+## Historial de Avance de Rutas (varias fechas)
+
+Cada vez que importas la Hoja de Ruta o la Hoja del BEES, sus registros se **guardan en tu historial en vez de reemplazar lo anterior**: si hoy importas el archivo del 1 de julio y mañana el del 2 de julio, terminas con el historial de ambos días guardado, no solo el del último archivo que subiste. Si vuelves a importar el archivo de un día que ya habías cargado, solo se actualiza/corrige ese día — el resto de tu historial no se toca.
+
+La pestaña **Avance de Rutas** (tarjetas y tabla de clientes programados/entregados/rechazados) trabaja siempre sobre un solo día a la vez, para que los conteos no se mezclen entre fechas distintas. Arriba de los filtros hay un selector de **Fecha**: por defecto muestra el día más reciente que tengas guardado, pero puedes elegir cualquier otro día de tu historial, o "Todas las fechas" para ver el acumulado completo. El botón "Quitar filtros" no cambia la fecha elegida (solo limpia Ruta/Empresa/Viaje/Estado/Buscar), y "Vaciar TODO el historial de avance" borra permanentemente todas las fechas guardadas (útil si necesitas empezar de cero).
+
+El **Dashboard MR** (ver abajo) sí usa el historial completo de todas las fechas para sus gráficas y tablas por día/semana, independientemente de qué fecha tengas seleccionada en la pestaña "Avance de Rutas".
+
+## Dashboard MR (Motivo de Rechazo)
+
+Dentro de **Mapas y Seguimiento de Rutas → Avance de Rutas** hay una pestaña adicional, **Dashboard MR**, con una visual de indicadores de rechazo (estilo reporte de MR) armada 100% a partir de los datos que ya importas ahí mismo (en especial la "Hoja del BEES", que trae la columna **MR** con el motivo de rechazo). No necesita ningún archivo, pestaña ni conexión adicional: se recalcula sola al entrar a la pestaña, al cambiar el rango de fechas "Desde/Hasta", o al presionar el botón **🔄 Actualizar**.
+
+Incluye:
+
+- Tarjetas de HL Programado, Entregado, No Entregado (rechazos totales + entregas parciales/modificadas), Cajas No Entregadas, MR% Volumen y MR% Pedidos.
+- Gráfica de rechazos por día (MR% Volumen y MR% Pedido) y otra de Refusal Total vs Refusal Parcial en hectolitros con el % de MR superpuesto.
+- Dos gráficas de dona (participación de rechazos por HL y por número de clientes) y tres gráficas de barras (Customer, Logistic, Sales) con el detalle por motivo.
+- Una tabla de detalle por Responsable y Motivo, otra por Tipo de MR (Refusal Total / Refusal Parcial), y un resumen semanal en hectolitros.
+
+Algunas decisiones que tomamos al construirlo, para que las tengas presentes:
+
+- **Responsable por motivo**: el responsable se asigna automáticamente según las palabras que contenga el texto del motivo (sin importar mayúsculas, acentos, ni si trae o no un código delante): **Customer** (cerrado, sin dinero, ausente, sin envases, rechazado), **Logistic** (fuera de horario, atribución a ruta/camión), **Almacén** (error en carga, mala calidad), **Sales** (mal facturado, no hizo pedido, no ubicado) y **Externo** (asalto). Si el texto del motivo no contiene ninguna de estas palabras, o el cliente no entregado no tiene motivo registrado, se agrupa como **"(en blanco)"** en vez de asumirle un responsable al azar. Si tu negocio usa otras palabras o motivos que no están en esta lista, dínoslo y se agregan al mapeo.
+- **Refusal Total vs Refusal Parcial**: "Refusal Total" son los clientes totalmente rechazados; "Refusal Parcial" son las entregas modificadas (se entregó una parte del pedido y se rechazó el resto). Ambos cuentan para el HL "No Entregado" y para el MR% Pedidos de este dashboard.
+- **Semanas por rango de fechas, no por número "W##"**: el resumen semanal agrupa de lunes a domingo y etiqueta cada semana por su rango de fechas (por ejemplo "29/06 al 05/07") en lugar de un número de semana tipo "W26". No se pudo confirmar con certeza la convención de numeración de semana fiscal que usa tu negocio (el estándar ISO-8601 no coincidía con los ejemplos de referencia), así que se prefirió no arriesgar a mostrar un número de semana incorrecto.
+- El resumen semanal solo puede agrupar registros que tengan fecha (columna FECHA de la Hoja del BEES); un registro sin fecha sí se cuenta en las tarjetas y tablas generales, pero no aparece en las gráficas por día ni en el resumen semanal.
+
+## Sincronización en la nube (Firebase)
+
+La aplicación intenta conectarse a un proyecto de Firebase (Firestore) para sincronizar los datos entre computadoras en tiempo real. El estado se muestra como una insignia junto a tu usuario en el menú lateral:
+
+- **✅ Sincronizado** (verde): los cambios se están guardando y recibiendo de la nube con normalidad.
+- **⏳ Conectando…** (gris): se está estableciendo la conexión.
+- **⚠️ Sin conexión / no disponible** (rojo): no se pudo conectar a la nube. La aplicación sigue funcionando con normalidad usando solo el almacenamiento local de este navegador, pero los cambios no se compartirán con otras computadoras hasta que la conexión se restablezca.
+
+**Importante:** si vas a alojar tu propia copia (por ejemplo con GitHub Pages) y quieres que la sincronización en la nube funcione, necesitas:
+
+1. Tener un proyecto de Firebase con Firestore habilitado.
+2. Reemplazar el bloque `firebaseConfig` dentro de `index.html` con las credenciales de tu propio proyecto.
+3. En Firestore, agregar el dominio donde publiques la página (por ejemplo `tuusuario.github.io`) a la lista de dominios autorizados del proyecto de Firebase (Authentication → Settings → Authorized domains, si usas autenticación, o revisar las reglas de seguridad de Firestore si no).
+4. Revisar las reglas de seguridad de Firestore para permitir lectura/escritura desde tu dominio.
+
+Si no configuras Firebase (o no tienes conexión a internet), la aplicación funciona igual, solo que cada computadora guarda sus propios datos de forma independiente en su `localStorage`.
+
+## Publicarla con GitHub Pages
+
+1. Crea un repositorio en GitHub y sube `index.html` (puedes usar este mismo repositorio, tal como está empaquetado).
+2. Ve a **Settings → Pages** en el repositorio.
+3. En "Source", elige la rama (por ejemplo `main`) y la carpeta raíz (`/`).
+4. Guarda. GitHub te dará una URL como `https://tuusuario.github.io/tu-repositorio/` donde ya podrás abrir la aplicación.
+
+## Notas técnicas
+
+- Todo el código (HTML, CSS y JavaScript) vive en un solo archivo `index.html`, sin dependencias de build ni servidor propio.
+- Usa `localStorage` como almacenamiento principal y Firebase Firestore como sincronización opcional en la nube.
+- Las exportaciones a Excel usan las librerías SheetJS y ExcelJS, incluidas dentro del mismo archivo.
+- El mapa usa Leaflet.

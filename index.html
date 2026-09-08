@@ -610,6 +610,32 @@
   .celda-tardanza { background: #eaf1fb; color: var(--azul); font-weight: 700; }
   .badge-alerta { background: #fdecea; color: var(--rojo); }
   .badge-parcial { background: #fff4e0; color: #b36b00; }
+  .badge-desplanificado { background: #ececec; color: #5a5a5a; }
+  .chip-dia-cerrado {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #eef2f7;
+    color: var(--azul);
+    border-radius: 20px;
+    padding: 5px 6px 5px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    margin: 0 6px 6px 0;
+  }
+  .chip-dia-cerrado button {
+    border: none;
+    background: #fff;
+    color: var(--gris-suave);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .chip-dia-cerrado button:hover { color: var(--rojo); }
 
   /* ---- Asistencia diaria (diagramada) ---- */
   .fecha-diaria-titulo {
@@ -3396,7 +3422,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
           </div>
         </div>
         <div id="cuerpoImportarAvance" style="margin-top:10px;">
-          <p class="ayuda-guardar" style="margin:0 0 12px 0;">El avance se calcula cruzando dos archivos por el código de cliente y la fecha de la visita: la Hoja de Ruta (archivo <strong>routesdata...</strong>, con el estado y volúmenes de cada visita) y la Hoja del BEES (archivo <strong>HojaRuta...</strong>, con la ruta, el cliente y el volumen programado). Puedes importar uno o ambos; con ambos el cruce es completo. Cada vez que importas un archivo, sus registros se van <strong>guardando en tu historial</strong> (no se borra lo de fechas anteriores): si vuelves a importar el archivo de un día que ya habías cargado, solo se actualiza ese día.</p>
+          <p class="ayuda-guardar" style="margin:0 0 12px 0;">El avance se calcula cruzando dos archivos por el código de cliente y la fecha de la visita: la Hoja de Ruta (archivo <strong>routesdata...</strong>, con el estado y volúmenes de cada visita) y la Hoja del BEES (archivo <strong>HojaRuta...</strong>, con la ruta, el cliente y el volumen programado). La Hoja de Ruta es la que manda para saber si un pedido está entregado, rechazado o en entrega parcial; si un cliente aparece en la Hoja del BEES pero no tiene ningún registro en la Hoja de Ruta para esa fecha, se marca como <strong>Desplanificado</strong> (no se calcula avance a partir de la Hoja del BEES sola). Puedes importar uno o ambos; con ambos el cruce es completo. Cada vez que importas un archivo, sus registros se van <strong>guardando en tu historial</strong> (no se borra lo de fechas anteriores): si vuelves a importar el archivo de un día que ya habías cargado, solo se actualiza ese día — salvo que lo hayas <strong>cerrado</strong> más abajo, en cuyo caso ese día ya no se toca.</p>
           <div class="grid-importar-avance">
             <div class="tarjeta-importar-avance">
               <p><strong>1. Hoja de Ruta</strong> (archivo routesdata...)</p>
@@ -3416,6 +3442,22 @@ svg.leaflet-image-layer.leaflet-interactive path {
             </div>
           </div>
           <button type="button" class="btn-peligro" id="btnVaciarAvance" style="margin-top:12px;">Vaciar TODO el historial de avance</button>
+
+          <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--borde);">
+            <p style="margin:0 0 4px 0; font-weight:700; color:var(--azul); font-size:13px;">🔒 Días cerrados</p>
+            <p class="ayuda-guardar" style="margin:0 0 10px 0;">Cierra un día cuando ya esté completo y no quieras que se modifique: si más adelante importas otro archivo (de otro día, o del mismo por error), lo que ya quedó guardado en un día cerrado no se toca ni se recalcula. Puedes reabrirlo cuando quieras.</p>
+            <div class="fila-filtros-mapa">
+              <div class="campo">
+                <label for="cerrarDiaAvanceFecha">Fecha a cerrar</label>
+                <select id="cerrarDiaAvanceFecha"></select>
+              </div>
+              <div class="campo">
+                <label>&nbsp;</label>
+                <button type="button" class="btn-secundario" id="btnCerrarDiaAvance">🔒 Cerrar este día</button>
+              </div>
+            </div>
+            <div id="listaDiasCerradosAvance" style="margin-top:10px;"></div>
+          </div>
         </div>
       </div>
 
@@ -3445,6 +3487,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
               <option value="Pendiente">Pendiente</option>
               <option value="Parcial">Entrega Parcial</option>
               <option value="Rechazado">Rechazado</option>
+              <option value="Desplanificado">Desplanificado</option>
             </select>
           </div>
           <div class="campo campo-buscar-mapa">
@@ -3482,6 +3525,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                   <th>Pendientes</th>
                   <th>Parciales</th>
                   <th>Rechazados</th>
+                  <th>Desplanificados</th>
                   <th>% Avance</th>
                   <th>Vol. Programado (hl)</th>
                   <th>Vol. Entregado (hl)</th>
@@ -4600,6 +4644,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const CLAVE_MAPA = 'mapaRutasDB';
   const CLAVE_AVANCE_RD = 'avanceRoutesdataDB';
   const CLAVE_AVANCE_HR = 'avanceHojaBeesDB';
+  const CLAVE_DIAS_CERRADOS_AVANCE = 'avanceDiasCerradosDB';
   const CLAVE_LIQUIDACIONES = 'liquidacionesInventarioDB';
   const CLAVE_FLOTA_CARRETAS = 'flotaCarretasDB';
   const CLAVE_FLOTA_CAMIONES = 'flotaCamionesInventarioDB';
@@ -4626,6 +4671,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   let mapaClientes = [];   // Mapas y Seguimiento de Rutas: clientes con coordenadas (hoja de ruta)
   let avanceRD = [];       // Avance de Rutas: datos de la Hoja de Ruta (archivo routesdata..., estado y volúmenes por visita)
   let avanceHR = [];       // Avance de Rutas: datos de la Hoja del BEES (archivo HojaRuta..., ruta/cliente/volumen programado)
+  let diasCerradosAvance = []; // Avance de Rutas: fechas (ISO) "cerradas" - no se agregan ni actualizan registros de esos días al importar
   let fechaAvanceInicializada = false; // Controla cuándo el selector de Fecha de Avance de Rutas debe "saltar" a la más reciente
   let liquidaciones = [];  // Liquidaciones de inventario de camiones, importadas desde PDF
   let idxLiquidacionAbierta = null; // índice de la liquidación mostrada en el panel de detalle
@@ -9477,6 +9523,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     guardarEnNube('avanceHR', avanceHR);
   }
+  function cargarDiasCerradosAvance() {
+    try {
+      const guardado = localStorage.getItem(CLAVE_DIAS_CERRADOS_AVANCE);
+      diasCerradosAvance = guardado ? JSON.parse(guardado) : [];
+    } catch (e) {
+      diasCerradosAvance = [];
+      mostrarAvisoStorage();
+    }
+  }
+  function guardarDiasCerradosAvance() {
+    try {
+      localStorage.setItem(CLAVE_DIAS_CERRADOS_AVANCE, JSON.stringify(diasCerradosAvance));
+    } catch (e) {
+      if (storageDisponible) mostrarAvisoStorage();
+    }
+    guardarEnNube('diasCerradosAvance', diasCerradosAvance);
+  }
 
   function formatearHl(n) { return (n || 0).toFixed(2) + ' hl'; }
   function formatearPct(n) { return (n || 0).toFixed(1) + '%'; }
@@ -9589,10 +9652,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // importar el archivo de un día que ya se había cargado, solo se corrige ese día; el resto del
   // historial de Avance de Rutas permanece intacto.
   function combinarPorCodigoYFecha(listaActual, nuevos, obtenerFecha) {
+    // Los registros cuya fecha esté en un "día cerrado" se descartan del todo: ni se agregan ni
+    // actualizan nada de ese día, para que quede tal cual como estaba cuando se cerró.
+    const nuevosFiltrados = nuevos.filter(function (r) { return diasCerradosAvance.indexOf(obtenerFecha(r)) === -1; });
     const resultado = listaActual.slice();
     const indicePorClave = {};
     resultado.forEach(function (r, i) { indicePorClave[r.codigo + '||' + obtenerFecha(r)] = i; });
-    nuevos.forEach(function (r) {
+    nuevosFiltrados.forEach(function (r) {
       const clave = r.codigo + '||' + obtenerFecha(r);
       if (Object.prototype.hasOwnProperty.call(indicePorClave, clave)) {
         resultado[indicePorClave[clave]] = r;
@@ -9610,11 +9676,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function contarNuevosYActualizadosAvance(listaActual, nuevos, obtenerFecha) {
     const clavesExistentes = {};
     listaActual.forEach(function (r) { clavesExistentes[r.codigo + '||' + obtenerFecha(r)] = true; });
-    let actualizados = 0, agregados = 0;
+    let actualizados = 0, agregados = 0, enDiasCerrados = 0;
     nuevos.forEach(function (r) {
-      if (clavesExistentes[r.codigo + '||' + obtenerFecha(r)]) actualizados++; else agregados++;
+      const fecha = obtenerFecha(r);
+      if (diasCerradosAvance.indexOf(fecha) !== -1) { enDiasCerrados++; return; }
+      if (clavesExistentes[r.codigo + '||' + fecha]) actualizados++; else agregados++;
     });
-    return { actualizados: actualizados, agregados: agregados };
+    return { actualizados: actualizados, agregados: agregados, enDiasCerrados: enDiasCerrados };
   }
 
   function procesarArchivoAvanceHR(archivo, inputEl) {
@@ -9636,12 +9704,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           return;
         }
         const obtenerFechaHR = function (r) { return r.fecha || ''; };
-        if (avanceHR.length > 0) {
+        if (avanceHR.length > 0 || diasCerradosAvance.length > 0) {
           const conteo = contarNuevosYActualizadosAvance(avanceHR, nuevos, obtenerFechaHR);
           const detalleConteo = conteo.actualizados > 0
             ? `${conteo.agregados} son nuevo(s) y ${conteo.actualizados} van a actualizar fechas que ya tenías guardadas`
             : `los ${conteo.agregados} son nuevos`;
-          if (!confirm(`Se encontraron ${nuevos.length} registro(s) en el archivo (${detalleConteo}). El resto de tu historial de Avance de Rutas (otras fechas) no se borra. ¿Continuar?`)) {
+          const notaCerrados = conteo.enDiasCerrados > 0 ? ` ${conteo.enDiasCerrados} registro(s) son de día(s) que ya cerraste y no se van a tocar.` : '';
+          if (!confirm(`Se encontraron ${nuevos.length} registro(s) en el archivo (${detalleConteo}).${notaCerrados} El resto de tu historial de Avance de Rutas (otras fechas) no se borra. ¿Continuar?`)) {
             inputEl.value = '';
             return;
           }
@@ -9651,6 +9720,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         actualizarInfoImportacionAvance();
         poblarFiltroRutaAvance();
         poblarFiltroFechaAvance(true);
+        poblarSelectCerrarDiaAvance();
         renderAvanceRutas();
       } catch (err) {
         console.error('Error al leer la Hoja del BEES:', err);
@@ -9755,6 +9825,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         actualizarInfoImportacionAvance();
         poblarFiltroRutaAvance();
         poblarFiltroFechaAvance(true);
+        poblarSelectCerrarDiaAvance();
         renderAvanceRutas();
       } catch (err) {
         console.error('Error al leer la Hoja de Ruta:', err);
@@ -9782,8 +9853,60 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       actualizarInfoImportacionAvance();
       poblarFiltroRutaAvance();
       poblarFiltroFechaAvance(true);
+      poblarSelectCerrarDiaAvance();
       renderAvanceRutas();
     }
+  });
+
+  /* ---- Días cerrados: bloquear fechas para que futuras importaciones no las toquen ---- */
+  function poblarSelectCerrarDiaAvance() {
+    const sel = document.getElementById('cerrarDiaAvanceFecha');
+    const valorActual = sel.value;
+    const unificado = construirAvanceUnificado();
+    const fechas = Array.from(new Set(unificado.map(function (r) { return r.fecha; }).filter(Boolean)))
+      .filter(function (f) { return diasCerradosAvance.indexOf(f) === -1; })
+      .sort().reverse();
+    if (fechas.length === 0) {
+      sel.innerHTML = '<option value="">No hay fechas disponibles</option>';
+      return;
+    }
+    sel.innerHTML = fechas.map(function (f) { return `<option value="${f}">${formatearFecha(f)}</option>`; }).join('');
+    if (fechas.indexOf(valorActual) !== -1) sel.value = valorActual;
+  }
+
+  function renderListaDiasCerradosAvance() {
+    const cont = document.getElementById('listaDiasCerradosAvance');
+    if (diasCerradosAvance.length === 0) {
+      cont.innerHTML = '<p class="ayuda-guardar" style="margin:0;">Todavía no cerraste ningún día.</p>';
+      return;
+    }
+    const ordenados = diasCerradosAvance.slice().sort().reverse();
+    cont.innerHTML = ordenados.map(function (f) {
+      return `<span class="chip-dia-cerrado">🔒 ${formatearFecha(f)} <button type="button" class="btn-reabrir-dia-avance" data-fecha="${f}" title="Reabrir este día">×</button></span>`;
+    }).join('');
+  }
+
+  document.getElementById('btnCerrarDiaAvance').addEventListener('click', function () {
+    const sel = document.getElementById('cerrarDiaAvanceFecha');
+    const fecha = sel.value;
+    if (!fecha) { alert('Elige una fecha para cerrar.'); return; }
+    if (diasCerradosAvance.indexOf(fecha) !== -1) return;
+    if (!confirm(`¿Cerrar el día ${formatearFecha(fecha)}? A partir de ahora, si importas otro archivo que incluya registros de esa fecha, esos registros se van a ignorar (no se van a agregar ni actualizar). Puedes reabrir este día cuando quieras.`)) return;
+    diasCerradosAvance.push(fecha);
+    guardarDiasCerradosAvance();
+    poblarSelectCerrarDiaAvance();
+    renderListaDiasCerradosAvance();
+  });
+
+  document.getElementById('listaDiasCerradosAvance').addEventListener('click', function (e) {
+    const btn = e.target.closest('.btn-reabrir-dia-avance');
+    if (!btn) return;
+    const fecha = btn.getAttribute('data-fecha');
+    if (!confirm(`¿Reabrir el día ${formatearFecha(fecha)}? Al reabrirlo, la próxima vez que importes un archivo con registros de esa fecha, sí se van a actualizar.`)) return;
+    diasCerradosAvance = diasCerradosAvance.filter(function (f) { return f !== fecha; });
+    guardarDiasCerradosAvance();
+    poblarSelectCerrarDiaAvance();
+    renderListaDiasCerradosAvance();
   });
 
   function fijarColapsoImportAvance(expandido) {
@@ -9901,26 +10024,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         }
         motivoRechazo = (hr && hr.motivoRechazo) || '';
       } else if (hr) {
+        // Si el cliente aparece en la Hoja del BEES pero NO tiene ningún registro en la Hoja de
+        // Ruta para esa misma fecha, quiere decir que no se ejecutó/registró en el sistema de
+        // ruta: está "Desplanificado". No se calcula entrega ni rechazo a partir de la Hoja del
+        // BEES sola (esa hoja solo trae lo planificado, no el resultado real de la visita) — lo
+        // que manda para saber si se entregó, rechazó o quedó parcial es la Hoja de Ruta.
         volumenProgramado = hr.hlProgramado || 0;
-        if (hr.rechazo === 'Sí') {
-          // Si además de marcarse como rechazado la Hoja del BEES trae un HL facturado/entregado
-          // mayor a cero (pero menor al programado), es una entrega MODIFICADA/PARCIAL: se entregó
-          // una parte y se rechazó el resto -no un rechazo total del pedido-.
-          const facturado = hr.hlFact != null ? hr.hlFact : 0;
-          if (facturado > 0 && facturado < volumenProgramado) {
-            estado = 'Parcial';
-            volumenEntregado = facturado;
-            volumenRechazado = Math.max(0, volumenProgramado - facturado);
-          } else {
-            estado = 'Rechazado';
-            volumenRechazado = volumenProgramado;
-          }
-        } else if (hr.entregado === 'Sí') {
-          estado = 'Entregado';
-          volumenEntregado = (hr.hlFact != null ? hr.hlFact : hr.hlProgramado) || 0;
-        } else {
-          estado = 'Pendiente';
-        }
+        estado = 'Desplanificado';
         motivoRechazo = hr.motivoRechazo || '';
       }
 
@@ -9940,7 +10050,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (!mapa[key]) {
         mapa[key] = {
           ruta: key, vehiculo: r.vehiculo, clientesProgramados: 0, clientesEntregados: 0, clientesPendientes: 0,
-          clientesParciales: 0, clientesRechazados: 0,
+          clientesParciales: 0, clientesRechazados: 0, clientesDesplanificados: 0,
           clientesAlerta: 0, volumenProgramado: 0, volumenEntregado: 0, volumenRechazado: 0
         };
       }
@@ -9949,6 +10059,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       if (r.estado === 'Entregado') g.clientesEntregados++;
       else if (r.estado === 'Parcial') g.clientesParciales++;
       else if (r.estado === 'Rechazado') g.clientesRechazados++;
+      else if (r.estado === 'Desplanificado') g.clientesDesplanificados++;
       else g.clientesPendientes++;
       if (r.alerta) g.clientesAlerta++;
       g.volumenProgramado += r.volumenProgramado || 0;
@@ -9960,7 +10071,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       // El MR% de pedido solo cuenta a los clientes totalmente rechazados, no a las entregas parciales.
       g.mrVolumen = g.volumenProgramado > 0 ? (g.volumenRechazado / g.volumenProgramado * 100) : 0;
       g.mrPedido = g.clientesProgramados > 0 ? (g.clientesRechazados / g.clientesProgramados * 100) : 0;
-      g.avancePct = g.clientesProgramados > 0 ? ((g.clientesProgramados - g.clientesPendientes) / g.clientesProgramados * 100) : 0;
+      // "Avanzado" es todo lo que ya tiene un resultado real registrado en la Hoja de Ruta (entregado,
+      // parcial o rechazado); ni lo pendiente ni lo desplanificado (sin ningún registro en la Hoja de
+      // Ruta) cuentan como avance.
+      g.avancePct = g.clientesProgramados > 0 ? ((g.clientesProgramados - g.clientesPendientes - g.clientesDesplanificados) / g.clientesProgramados * 100) : 0;
       return g;
     }).sort(function (a, b) { return a.ruta.localeCompare(b.ruta); });
   }
@@ -9983,7 +10097,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }
     const clientesPorRuta = agruparClientesPorRuta(unificado);
     contenedor.innerHTML = porRuta.map(function (g) {
-      const avanzados = g.clientesProgramados - g.clientesPendientes;
+      const avanzados = g.clientesProgramados - g.clientesPendientes - g.clientesDesplanificados;
       const tieneAlerta = (g.clientesAlerta > 0) || (g.clientesRechazados > 0) || (g.clientesParciales > 0);
       const clientes = clientesPorRuta[g.ruta] || [];
       const filasDetalle = clientes.map(function (r) {
@@ -9991,6 +10105,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         if (r.estado === 'Entregado') badge = '<span class="badge badge-si">Entregado</span>';
         else if (r.estado === 'Parcial') badge = '<span class="badge badge-parcial">Entrega Parcial</span>';
         else if (r.estado === 'Rechazado') badge = '<span class="badge badge-alerta">Rechazado</span>';
+        else if (r.estado === 'Desplanificado') badge = '<span class="badge badge-desplanificado">Desplanificado</span>';
         return `
           <tr>
             <td>${escaparHtml(r.codigo)}</td>
@@ -10015,6 +10130,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
               <span class="texto-verde">${g.clientesEntregados} entregado${g.clientesEntregados === 1 ? '' : 's'}</span>
               <span class="texto-naranja">${g.clientesParciales} parcial${g.clientesParciales === 1 ? '' : 'es'}</span>
               <span class="texto-rojo">${g.clientesRechazados} rechazado${g.clientesRechazados === 1 ? '' : 's'}</span>
+              <span style="color:#5a5a5a;">${g.clientesDesplanificados} desplanificado${g.clientesDesplanificados === 1 ? '' : 's'}</span>
             </div>
             <div class="tarjeta-ruta-progreso">
               <div class="barra-progreso-ruta"><div class="barra-progreso-ruta-relleno" style="width:${g.avancePct}%"></div></div>
@@ -10118,6 +10234,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (r.estado === 'Entregado') badge = '<span class="badge badge-si">Entregado</span>';
     else if (r.estado === 'Parcial') badge = '<span class="badge badge-parcial">Entrega Parcial</span>';
     else if (r.estado === 'Rechazado') badge = '<span class="badge badge-alerta">Rechazado</span>';
+    else if (r.estado === 'Desplanificado') badge = '<span class="badge badge-desplanificado">Desplanificado</span>';
     return `
       <tr>
         <td>${escaparHtml(r.ruta)}</td>
@@ -10179,6 +10296,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const pendientes = filtrado.filter(function (r) { return r.estado === 'Pendiente'; }).length;
     const parciales = filtrado.filter(function (r) { return r.estado === 'Parcial'; }).length;
     const rechazados = filtrado.filter(function (r) { return r.estado === 'Rechazado'; }).length;
+    const desplanificados = filtrado.filter(function (r) { return r.estado === 'Desplanificado'; }).length;
     const volProgramado = filtrado.reduce(function (s, r) { return s + (r.volumenProgramado || 0); }, 0);
     const volEntregado = filtrado.reduce(function (s, r) { return s + (r.volumenEntregado || 0); }, 0);
     const volRechazado = filtrado.reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0);
@@ -10208,6 +10326,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         <div class="stat-label">Clientes Rechazando</div>
         <div class="stat-valor">${rechazados}</div>
       </div>
+      <div class="stat-tile" style="background:#ececec;">
+        <div class="stat-label">Clientes Desplanificados</div>
+        <div class="stat-valor" style="color:#5a5a5a;">${desplanificados}</div>
+      </div>
     `;
 
     document.getElementById('statTilesAvanceVolumen').innerHTML = `
@@ -10232,7 +10354,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const porRuta = agregarAvancePorRuta(unificadoPorRuta);
     const cuerpoPorRuta = document.getElementById('cuerpoTablaAvancePorRuta');
     if (porRuta.length === 0) {
-      cuerpoPorRuta.innerHTML = '<tr><td colspan="14" class="vacio">Importa la Hoja de Ruta y/o la Hoja del BEES para ver el avance por ruta.</td></tr>';
+      cuerpoPorRuta.innerHTML = '<tr><td colspan="15" class="vacio">Importa la Hoja de Ruta y/o la Hoja del BEES para ver el avance por ruta.</td></tr>';
     } else {
       cuerpoPorRuta.innerHTML = porRuta.map(function (g) {
         return `
@@ -10244,6 +10366,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <td>${g.clientesPendientes}</td>
             <td class="texto-naranja">${g.clientesParciales}</td>
             <td class="texto-rojo">${g.clientesRechazados}</td>
+            <td>${g.clientesDesplanificados}</td>
             <td>${formatearPct(g.avancePct)}</td>
             <td>${formatearHl(g.volumenProgramado)}</td>
             <td class="texto-verde">${formatearHl(g.volumenEntregado)}</td>
@@ -13054,9 +13177,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   cargarAvanceRD();
   cargarAvanceHR();
+  cargarDiasCerradosAvance();
   actualizarInfoImportacionAvance();
   poblarFiltroRutaAvance();
   poblarFiltroFechaAvance();
+  poblarSelectCerrarDiaAvance();
+  renderListaDiasCerradosAvance();
 
   cargarLiquidaciones();
   renderTablaLiquidaciones('');
@@ -13164,13 +13290,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   registrarSincronizacion('avanceRD', CLAVE_AVANCE_RD,
     function () { return avanceRD; },
     function (v) { avanceRD = v || []; },
-    function () { actualizarInfoImportacionAvance(); poblarFiltroRutaAvance(); poblarFiltroFechaAvance(); renderAvanceRutas(); }
+    function () { actualizarInfoImportacionAvance(); poblarFiltroRutaAvance(); poblarFiltroFechaAvance(); poblarSelectCerrarDiaAvance(); renderAvanceRutas(); }
   );
 
   registrarSincronizacion('avanceHR', CLAVE_AVANCE_HR,
     function () { return avanceHR; },
     function (v) { avanceHR = v || []; },
-    function () { actualizarInfoImportacionAvance(); poblarFiltroRutaAvance(); poblarFiltroFechaAvance(); renderAvanceRutas(); }
+    function () { actualizarInfoImportacionAvance(); poblarFiltroRutaAvance(); poblarFiltroFechaAvance(); poblarSelectCerrarDiaAvance(); renderAvanceRutas(); }
+  );
+
+  registrarSincronizacion('diasCerradosAvance', CLAVE_DIAS_CERRADOS_AVANCE,
+    function () { return diasCerradosAvance; },
+    function (v) { diasCerradosAvance = v || []; },
+    function () { poblarSelectCerrarDiaAvance(); renderListaDiasCerradosAvance(); renderAvanceRutas(); }
   );
 
   registrarSincronizacion('liquidaciones', CLAVE_LIQUIDACIONES,

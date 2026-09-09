@@ -3505,6 +3505,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <div class="stat-tiles" id="statTilesAvanceClientes"></div>
       <div class="stat-tiles" id="statTilesAvanceVolumen"></div>
       <div class="stat-tiles" id="statTilesAvanceMr"></div>
+      <div id="panelAnomaliasVolumenAvance"></div>
 
       <div class="grid-avance-2col">
         <div class="panel panel-avance-porruta">
@@ -10458,6 +10459,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const volProgramado = filtrado.reduce(function (s, r) { return s + (r.volumenProgramado || 0); }, 0);
     const volEntregado = filtrado.reduce(function (s, r) { return s + (r.volumenEntregado || 0); }, 0);
     const volRechazado = filtrado.reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0);
+
+    // ---- Diagnóstico: clientes cuyo volumen entregado quedó por encima del programado ----
+    // Esto no siempre es un error (un cliente puede recibir más de lo planificado si hubo un
+    // pedido adicional durante la visita), pero cuando pasa en muchos clientes suele ser señal de
+    // que el cruce entre la Hoja de Ruta y la Hoja del BEES no está encontrando a ese cliente
+    // (por eso se muestra la lista: para poder revisar código por código cuál es el motivo real).
+    const TOLERANCIA_ANOMALIA_VOL = 0.02; // hl - margen para no marcar diferencias de redondeo
+    const anomaliasVolumen = filtrado.filter(function (r) {
+      return (r.volumenEntregado || 0) > (r.volumenProgramado || 0) + TOLERANCIA_ANOMALIA_VOL;
+    }).sort(function (a, b) {
+      return ((b.volumenEntregado || 0) - (b.volumenProgramado || 0)) - ((a.volumenEntregado || 0) - (a.volumenProgramado || 0));
+    });
     const mrVolumen = volProgramado > 0 ? (volRechazado / volProgramado * 100) : 0;
     // El MR% de pedido cuenta tanto a los clientes totalmente rechazados como a los de entrega
     // parcial (así lo calcula también el Excel de Cierre de Operación: la columna "CUENTA RECHAZO"
@@ -10510,6 +10523,37 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     document.getElementById('statTilesAvanceMr').innerHTML =
       tileIndicadorMeta('MR% Volumen (Rechazado / Programado)', mrVolumen, METAS_AVANCE_RUTAS.mrVolumen) +
       tileIndicadorMeta('MR% Pedido (Rechazados + Parciales / Programados)', mrPedido, METAS_AVANCE_RUTAS.mrPedido);
+
+    const panelAnomalias = document.getElementById('panelAnomaliasVolumenAvance');
+    if (anomaliasVolumen.length === 0) {
+      panelAnomalias.innerHTML = '';
+    } else {
+      const sumaDiferencias = anomaliasVolumen.reduce(function (s, r) { return s + ((r.volumenEntregado || 0) - (r.volumenProgramado || 0)); }, 0);
+      panelAnomalias.innerHTML = `
+        <div class="panel" style="border:1px solid #f0c36d; background:#fffaf0;">
+          <h2 style="color:#a9760a;">⚠️ ${anomaliasVolumen.length} cliente${anomaliasVolumen.length === 1 ? '' : 's'} con volumen entregado mayor al programado (+${formatearHl(sumaDiferencias)} en total)</h2>
+          <p class="ayuda-guardar" style="margin:0 0 10px 0;">Esto no siempre es un error — puede ser un pedido adicional que se entregó en la misma visita —, pero si aparecen muchos clientes revisa si su código realmente está cruzando bien entre la Hoja de Ruta y la Hoja del BEES (mismo código, misma fecha).</p>
+          <div class="tabla-wrap">
+            <table class="tabla-mapa">
+              <thead><tr><th>Código</th><th>Cliente</th><th>Ruta</th><th>Vol. Programado</th><th>Vol. Entregado</th><th>Diferencia</th></tr></thead>
+              <tbody>
+                ${anomaliasVolumen.slice(0, 50).map(function (r) {
+                  return `<tr>
+                    <td>${escaparHtml(r.codigo)}</td>
+                    <td>${escaparHtml(r.cliente)}</td>
+                    <td>${escaparHtml(r.ruta)}</td>
+                    <td>${formatearHl(r.volumenProgramado)}</td>
+                    <td>${formatearHl(r.volumenEntregado)}</td>
+                    <td class="texto-naranja">+${formatearHl((r.volumenEntregado || 0) - (r.volumenProgramado || 0))}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+          ${anomaliasVolumen.length > 50 ? '<p class="ayuda-guardar" style="margin:8px 0 0 0;">Mostrando los 50 con mayor diferencia de ' + anomaliasVolumen.length + ' en total.</p>' : ''}
+        </div>
+      `;
+    }
 
     const porRuta = agregarAvancePorRuta(unificadoPorRuta);
     const cuerpoPorRuta = document.getElementById('cuerpoTablaAvancePorRuta');

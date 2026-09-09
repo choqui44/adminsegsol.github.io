@@ -10111,25 +10111,39 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         // (sin importar mayúsculas ni acentos), se considera rechazado aunque el volumen rechazado
         // venga en 0 por algún problema del dato de origen.
         const statusRdRechazado = statusRdIndicaRechazo(rd.status);
-        // El propio BEES marca la visita como "PARTIAL_DELIVERY" cuando el pedido se entregó en parte y se
-        // rechazó en parte (aunque en el momento de la exportación los hl entregados/rechazados de esa visita
-        // aún no estén del todo repartidos entre ambos campos). Por eso el estado "Parcial" se define primero
-        // por ese status explícito, y como respaldo también si hay volumen entregado Y rechazado a la vez.
-        if (rd.status === 'PARTIAL_DELIVERY' || (volumenEntregado > 0 && volumenRechazado > 0)) {
+        // IMPORTANTE: el status manda SIEMPRE por encima del campo de volumen rechazado. Antes, si
+        // el volumen rechazado traía cualquier valor residual (por ejemplo, un rechazo parcial que
+        // el chofer terminó re-entregando) el pedido se marcaba como "Rechazado" aunque el status
+        // dijera "CONCLUDED" (entregado) - eso daba clientes entregados figurando como rechazados.
+        // Por eso primero se revisan los 3 status explícitos de la Hoja de Ruta, en ese orden, y solo
+        // si el status no es ninguno de esos (viene vacío o con otro texto) se recurre al volumen
+        // como respaldo para no dejar el pedido sin clasificar.
+        if (rd.status === 'PARTIAL_DELIVERY') {
           estado = 'Parcial';
           // En una entrega parcial no se rechaza la totalidad del pedido: lo rechazado es lo que quedó
           // pendiente de entregar (programado - entregado), no un volumen "rechazado" reportado aparte que
           // puede no cuadrar con lo realmente entregado. Ese remanente es el que luego se suma con los
           // pedidos totalmente rechazados para calcular el MR% de volumen.
           volumenRechazado = Math.max(0, volumenProgramado - volumenEntregado);
-        } else if (statusRdRechazado || volumenRechazado > 0) {
+        } else if (statusRdRechazado) {
           estado = 'Rechazado';
           // Un pedido totalmente rechazado significa que no se entregó nada de lo programado: el
           // volumen rechazado tiene que ser exactamente el volumen programado (que ya sale de la
           // Hoja del BEES), no el número aparte que a veces trae la Hoja de Ruta.
           volumenRechazado = volumenProgramado;
         } else if (rd.status === 'CONCLUDED') {
+          // Si el status dice que la visita se concluyó/entregó, eso manda: se toma como entregado
+          // aunque el campo de volumen rechazado traiga algún valor residual, y no se cuenta rechazo.
           estado = 'Entregado';
+          volumenRechazado = 0;
+        } else if (volumenEntregado > 0 && volumenRechazado > 0) {
+          // Sin un status claro (vacío o distinto a los 3 de arriba), se infiere el estado a partir
+          // de los propios volúmenes, como respaldo.
+          estado = 'Parcial';
+          volumenRechazado = Math.max(0, volumenProgramado - volumenEntregado);
+        } else if (volumenRechazado > 0) {
+          estado = 'Rechazado';
+          volumenRechazado = volumenProgramado;
         } else {
           estado = 'Pendiente';
         }

@@ -10130,11 +10130,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       let volumenProgramado = 0, volumenEntregado = 0, volumenRechazado = 0, estado = 'Pendiente', motivoRechazo = '';
 
       if (rd) {
-        // El volumen programado sale SIEMPRE de la Hoja del BEES (columna Hl_Programado) — no se usa
-        // como respaldo el volumen que trae la Hoja de Ruta, porque ese campo no siempre representa
-        // lo realmente programado y puede quedar por debajo de lo entregado. Si este cliente y fecha
-        // no tienen ninguna fila en la Hoja del BEES, el programado queda en 0.
-        volumenProgramado = (hr && hr.hlProgramado) || 0;
+        // El volumen programado sale de la Hoja del BEES (columna Hl_Programado) siempre que ese
+        // código exista ahí. Solo cuando el código NO aparece en la Hoja del BEES (no hay ningún
+        // "hr" para este cliente y fecha) se usa como respaldo el volumen que trae la Hoja de Ruta,
+        // únicamente para ese caso puntual.
+        volumenProgramado = (hr && hr.hlProgramado) || (rd.volumenProgramado || 0);
         volumenEntregado = rd.volumenEntregado || 0;
         volumenRechazado = rd.volumenRechazado || 0;
         // El "status" que trae la Hoja de Ruta (columna STATUS del archivo routesdata) es la fuente
@@ -10164,8 +10164,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           volumenRechazado = volumenProgramado;
         } else if (rd.status === 'CONCLUDED') {
           // Si el status dice que la visita se concluyó/entregó, eso manda: se toma como entregado
-          // aunque el campo de volumen rechazado traiga algún valor residual, y no se cuenta rechazo.
+          // el 100% de lo programado (no el número aparte que trae la Hoja de Ruta, que puede tener
+          // pequeñas diferencias de medición y terminaba mostrando más entregado que programado).
+          // Un pedido "Entregado" siempre debe cuadrar exacto con su volumen programado.
           estado = 'Entregado';
+          volumenEntregado = volumenProgramado;
           volumenRechazado = 0;
         } else if (volumenEntregado > 0 && volumenRechazado > 0) {
           // Sin un status claro (vacío o distinto a los 3 de arriba), se infiere el estado a partir

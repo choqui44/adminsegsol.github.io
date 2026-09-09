@@ -10801,6 +10801,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     id: 'etiquetasDashboardMR',
     afterDatasetsDraw: function (chart) {
       const ctx = chart.ctx;
+      const esDona = chart.config.type === 'doughnut' || chart.config.type === 'pie';
       chart.data.datasets.forEach(function (dataset, dsIndex) {
         if (!dataset.__formatoEtiqueta) return;
         const meta = chart.getDatasetMeta(dsIndex);
@@ -10808,19 +10809,33 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         meta.data.forEach(function (elem, i) {
           const valor = dataset.data[i];
           if (valor === null || valor === undefined) return;
-          const texto = dataset.__formatoEtiqueta(valor);
+          const texto = dataset.__formatoEtiqueta(valor, i);
+          if (!texto) return;
           const pos = elem.tooltipPosition();
           ctx.save();
-          ctx.fillStyle = '#333';
-          ctx.font = '10px Arial';
-          if (chart.options.indexAxis === 'y') {
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(texto, pos.x + 4, pos.y);
-          } else {
+          if (esDona) {
+            // Centrado justo sobre el tramo de la dona, con contorno blanco para que se lea bien
+            // encima de cualquier color de fondo.
             ctx.textAlign = 'center';
-            ctx.textBaseline = 'bottom';
-            ctx.fillText(texto, pos.x, pos.y - 4);
+            ctx.textBaseline = 'middle';
+            ctx.font = 'bold 11px Arial';
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#fff';
+            ctx.strokeText(texto, pos.x, pos.y);
+            ctx.fillStyle = '#222';
+            ctx.fillText(texto, pos.x, pos.y);
+          } else {
+            ctx.fillStyle = '#333';
+            ctx.font = '10px Arial';
+            if (chart.options.indexAxis === 'y') {
+              ctx.textAlign = 'left';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(texto, pos.x + 4, pos.y);
+            } else {
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'bottom';
+              ctx.fillText(texto, pos.x, pos.y - 4);
+            }
           }
           ctx.restore();
         });
@@ -10931,25 +10946,81 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     crearOActualizarChart('chartDashboardMRDonaHl', {
       type: 'doughnut',
-      data: { labels: orden, datasets: [{ data: datosVol, backgroundColor: colores }] },
+      data: {
+        labels: orden,
+        datasets: [{
+          data: datosVol, backgroundColor: colores,
+          __formatoEtiqueta: function (v, i) {
+            const pct = volTotal > 0 ? (v / volTotal * 100) : 0;
+            return formatearHl(v) + ' (' + pct.toFixed(1) + '%)';
+          }
+        }]
+      },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom' },
+          legend: {
+            position: 'bottom',
+            // La leyenda muestra el % de CADA categoría (incluso las que tienen un tramo muy chico
+            // o en 0), porque un tramo de 0% no dibuja nada dentro de la dona.
+            labels: {
+              generateLabels: function (chart) {
+                return chart.data.labels.map(function (label, i) {
+                  const v = chart.data.datasets[0].data[i] || 0;
+                  const pct = volTotal > 0 ? (v / volTotal * 100) : 0;
+                  return {
+                    text: label + ': ' + pct.toFixed(1) + '%',
+                    fillStyle: chart.data.datasets[0].backgroundColor[i],
+                    strokeStyle: chart.data.datasets[0].backgroundColor[i],
+                    hidden: false,
+                    index: i
+                  };
+                });
+              }
+            }
+          },
           tooltip: { callbacks: { label: function (ctx) { const v = ctx.parsed; const pct = volTotal > 0 ? (v / volTotal * 100) : 0; return ctx.label + ': ' + formatearHl(v) + ' (' + pct.toFixed(1) + '%)'; } } }
         }
-      }
+      },
+      plugins: [pluginEtiquetasDashboardMR]
     });
     crearOActualizarChart('chartDashboardMRDonaClientes', {
       type: 'doughnut',
-      data: { labels: orden, datasets: [{ data: datosPed, backgroundColor: colores }] },
+      data: {
+        labels: orden,
+        datasets: [{
+          data: datosPed, backgroundColor: colores,
+          __formatoEtiqueta: function (v, i) {
+            const pct = pedidosTotal > 0 ? (v / pedidosTotal * 100) : 0;
+            return v + ' (' + pct.toFixed(1) + '%)';
+          }
+        }]
+      },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom' },
+          legend: {
+            position: 'bottom',
+            labels: {
+              generateLabels: function (chart) {
+                return chart.data.labels.map(function (label, i) {
+                  const v = chart.data.datasets[0].data[i] || 0;
+                  const pct = pedidosTotal > 0 ? (v / pedidosTotal * 100) : 0;
+                  return {
+                    text: label + ': ' + pct.toFixed(1) + '%',
+                    fillStyle: chart.data.datasets[0].backgroundColor[i],
+                    strokeStyle: chart.data.datasets[0].backgroundColor[i],
+                    hidden: false,
+                    index: i
+                  };
+                });
+              }
+            }
+          },
           tooltip: { callbacks: { label: function (ctx) { const v = ctx.parsed; const pct = pedidosTotal > 0 ? (v / pedidosTotal * 100) : 0; return ctx.label + ': ' + v + ' (' + pct.toFixed(1) + '%)'; } } }
         }
-      }
+      },
+      plugins: [pluginEtiquetasDashboardMR]
     });
   }
 

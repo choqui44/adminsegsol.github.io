@@ -9727,7 +9727,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           const valor = fila[parseInt(colIdx, 10)];
           if (campo === 'entregado' || campo === 'rechazo' || campo === 'alerta') nuevo[campo] = normalizarSiNoExcel(valor);
           else if (campo === 'fecha') nuevo[campo] = convertirFechaExcel(valor);
-          else if (campo === 'codigo') nuevo[campo] = convertirTextoNumericoExcel(valor);
+          else if (campo === 'codigo') nuevo[campo] = normalizarCodigoAvance(valor);
           else if (campo === 'hlProgramado' || campo === 'entregaCjs' || campo === 'cjasRechazado') nuevo[campo] = convertirNumeroExcel(valor) || 0;
           else if (campo === 'hlFact') nuevo[campo] = convertirNumeroExcel(valor);
           else nuevo[campo] = (valor === null || valor === undefined) ? '' : valor.toString().trim();
@@ -9743,6 +9743,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // Normaliza cualquier formato de fecha que pueda traer un archivo de avance (ISO con o sin hora,
   // DD/MM/AAAA, DD-MM-AAAA) a 'AAAA-MM-DD', para que las fechas de la Hoja de Ruta y de la Hoja del
   // BEES se puedan comparar y cruzar entre sí sin importar de qué archivo vinieron.
+  // Normaliza el código de cliente para el cruce entre la Hoja de Ruta y la Hoja del BEES. A veces
+  // un archivo trae el código como texto con ceros a la izquierda (ej. "0010984455", típico de un
+  // CSV) y el otro como número puro sin esos ceros (ej. 10984455, típico de una celda numérica de
+  // Excel) — aunque es el mismo cliente, antes no cruzaban y ese registro se quedaba sin su
+  // contraparte (por eso el volumen programado y el entregado no cuadraban). Se les quita cualquier
+  // cero a la izquierda a los códigos puramente numéricos para que ambos archivos siempre coincidan.
+  function normalizarCodigoAvance(valor) {
+    const texto = convertirTextoNumericoExcel(valor);
+    return /^\d+$/.test(texto) ? String(parseInt(texto, 10)) : texto;
+  }
+
   function normalizarFechaAvance(valor) {
     const texto = (valor || '').toString().trim();
     const conHora = texto.match(/^(\d{4}-\d{2}-\d{2})/);
@@ -9892,7 +9903,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const campo = mapa[claveOriginal];
         if (!campo) return;
         const valor = fila[claveOriginal];
-        if (campo === 'codigo') nuevo.codigo = convertirTextoNumericoExcel(valor);
+        if (campo === 'codigo') nuevo.codigo = normalizarCodigoAvance(valor);
         else if (campo === 'volumenProgramado' || campo === 'volumenEntregado' || campo === 'volumenRechazado') nuevo[campo] = convertirNumeroExcel(valor) || 0;
         else if (campo === 'tourDate') nuevo.tourDate = normalizarFechaAvance(valor);
         else nuevo[campo] = (valor || '').toString().trim();
@@ -10062,10 +10073,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   // pantallas que necesitan ver un solo día (como "Avance de Rutas") filtran después por fecha; el
   // Dashboard MR usa el historial completo para sus gráficas y tablas por día/semana.
   // El status de la Hoja de Ruta (columna STATUS del archivo routesdata) manda para decidir si un
-  // pedido está rechazado: si el texto contiene "rechaz" (rechazado/rechazada) o "reject" (rejected),
-  // sin importar mayúsculas ni acentos, se toma como rechazado.
+  // pedido está rechazado. Se reconoce como rechazo total tanto el texto que contiene
+  // "rechaz"/"reject" (sin importar mayúsculas ni acentos) como los códigos exactos que BEES usa
+  // para un rechazo, aunque su texto no incluya esas palabras: "DEFINITELY_RETURNED" (rechazo
+  // definitivo, confirmado revisando un Excel real de Cierre de Operación: es el código que
+  // corresponde a "Rechazo" en la traducción de status del negocio) y "WAITING_MODULATION"
+  // (rechazo en espera de modulación).
+  const CODIGOS_STATUS_RD_RECHAZO = ['DEFINITELY_RETURNED', 'WAITING_MODULATION'];
   function statusRdIndicaRechazo(status) {
-    const texto = (status || '').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+    const textoOriginal = (status || '').toString().trim().toUpperCase();
+    if (CODIGOS_STATUS_RD_RECHAZO.indexOf(textoOriginal) !== -1) return true;
+    const texto = textoOriginal.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     return texto.indexOf('rechaz') !== -1 || texto.indexOf('reject') !== -1;
   }
 
@@ -10205,9 +10223,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     });
     return Object.keys(mapa).map(function (k) {
       const g = mapa[k];
-      // El MR% de pedido solo cuenta a los clientes totalmente rechazados, no a las entregas parciales.
       g.mrVolumen = g.volumenProgramado > 0 ? (g.volumenRechazado / g.volumenProgramado * 100) : 0;
-      g.mrPedido = g.clientesProgramados > 0 ? (g.clientesRechazados / g.clientesProgramados * 100) : 0;
+      // El MR% de pedido cuenta tanto a los clientes totalmente rechazados como a los de entrega
+      // parcial (así lo calcula también el Excel de Cierre de Operación: la columna "CUENTA
+      // RECHAZO" del cierre suma 1 tanto para "Rechazo" como para "Entrega Parcial", y ese es el
+      // numerador que se divide entre el total de clientes programados).
+      g.mrPedido = g.clientesProgramados > 0 ? ((g.clientesRechazados + g.clientesParciales) / g.clientesProgramados * 100) : 0;
       // "Avanzado" es todo lo que ya tiene un resultado real registrado en la Hoja de Ruta (entregado,
       // parcial o rechazado); ni lo pendiente ni lo desplanificado (sin ningún registro en la Hoja de
       // Ruta) cuentan como avance.
@@ -10438,9 +10459,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const volEntregado = filtrado.reduce(function (s, r) { return s + (r.volumenEntregado || 0); }, 0);
     const volRechazado = filtrado.reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0);
     const mrVolumen = volProgramado > 0 ? (volRechazado / volProgramado * 100) : 0;
-    // El MR% de pedido solo cuenta a los clientes totalmente rechazados (no a las entregas parciales):
-    // total de clientes rechazados / total de clientes programados.
-    const mrPedido = programados > 0 ? (rechazados / programados * 100) : 0;
+    // El MR% de pedido cuenta tanto a los clientes totalmente rechazados como a los de entrega
+    // parcial (así lo calcula también el Excel de Cierre de Operación: la columna "CUENTA RECHAZO"
+    // del cierre suma 1 tanto para "Rechazo" como para "Entrega Parcial"): total de clientes
+    // rechazados + parciales, dividido entre el total de clientes programados.
+    const mrPedido = programados > 0 ? ((rechazados + parciales) / programados * 100) : 0;
 
     document.getElementById('statTilesAvanceClientes').innerHTML = `
       <div class="stat-tile stat-hero">
@@ -10486,7 +10509,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
     document.getElementById('statTilesAvanceMr').innerHTML =
       tileIndicadorMeta('MR% Volumen (Rechazado / Programado)', mrVolumen, METAS_AVANCE_RUTAS.mrVolumen) +
-      tileIndicadorMeta('MR% Pedido (Clientes Rechazados / Programados)', mrPedido, METAS_AVANCE_RUTAS.mrPedido);
+      tileIndicadorMeta('MR% Pedido (Rechazados + Parciales / Programados)', mrPedido, METAS_AVANCE_RUTAS.mrPedido);
 
     const porRuta = agregarAvancePorRuta(unificadoPorRuta);
     const cuerpoPorRuta = document.getElementById('cuerpoTablaAvancePorRuta');

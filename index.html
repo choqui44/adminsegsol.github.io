@@ -10071,7 +10071,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   function construirAvanceUnificado() {
     const porClaveHR = {};
-    avanceHR.forEach(function (r) { if (r.codigo) porClaveHR[r.codigo + '||' + (r.fecha || '')] = r; });
+    // Si un mismo cliente tiene más de una fila en la Hoja del BEES para la misma fecha (por
+    // ejemplo, distintos pedidos/productos ese día), se SUMA su Hl_Programado en vez de quedarse
+    // solo con la última fila -que antes hacía que se perdiera lo programado de las demás filas y
+    // el volumen programado total quedara por debajo del entregado-.
+    avanceHR.forEach(function (r) {
+      if (!r.codigo) return;
+      const clave = r.codigo + '||' + (r.fecha || '');
+      if (!porClaveHR[clave]) {
+        porClaveHR[clave] = Object.assign({}, r);
+      } else {
+        porClaveHR[clave].hlProgramado = (porClaveHR[clave].hlProgramado || 0) + (r.hlProgramado || 0);
+        if (!porClaveHR[clave].motivoRechazo && r.motivoRechazo) porClaveHR[clave].motivoRechazo = r.motivoRechazo;
+      }
+    });
     const porClaveRD = {};
     avanceRD.forEach(function (r) { if (r.codigo) porClaveRD[r.codigo + '||' + (r.tourDate || '')] = r; });
 
@@ -10098,12 +10111,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       let volumenProgramado = 0, volumenEntregado = 0, volumenRechazado = 0, estado = 'Pendiente', motivoRechazo = '';
 
       if (rd) {
-        // El volumen programado tiene que salir del archivo de la Hoja del BEES (columna
-        // Hl_Programado): es la fuente de lo que realmente se planificó para ese cliente. El propio
-        // volumen que trae la Hoja de Ruta no siempre refleja el total programado (a veces viene
-        // recortado o en 0 por cómo se generó ese reporte), así que solo se usa como respaldo cuando
-        // no hay ningún dato de la Hoja del BEES para ese cliente y esa fecha.
-        volumenProgramado = (hr && hr.hlProgramado != null && hr.hlProgramado > 0) ? hr.hlProgramado : (rd.volumenProgramado || 0);
+        // El volumen programado sale SIEMPRE de la Hoja del BEES (columna Hl_Programado) — no se usa
+        // como respaldo el volumen que trae la Hoja de Ruta, porque ese campo no siempre representa
+        // lo realmente programado y puede quedar por debajo de lo entregado. Si este cliente y fecha
+        // no tienen ninguna fila en la Hoja del BEES, el programado queda en 0.
+        volumenProgramado = (hr && hr.hlProgramado) || 0;
         volumenEntregado = rd.volumenEntregado || 0;
         volumenRechazado = rd.volumenRechazado || 0;
         // El "status" que trae la Hoja de Ruta (columna STATUS del archivo routesdata) es la fuente

@@ -3440,6 +3440,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 <input type="file" id="inputImportarAvanceHR" accept=".xlsx,.xls">
               </div>
               <p class="contador" id="infoAvanceHR">Sin datos importados.</p>
+              <p class="ayuda-guardar" id="avisoZonaSupervisorAvance" style="display:none; color:#a9760a; margin:4px 0 0 0;"></p>
             </div>
           </div>
           <button type="button" class="btn-peligro" id="btnVaciarAvance" style="margin-top:12px;">Vaciar TODO el historial de avance</button>
@@ -9780,8 +9781,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     entregaCjs: ['ENTREGACJS'],
     cjasRechazado: ['CJASRECHAZADO'],
     empresa: ['EMPRESA'],
-    zonaComercial: ['ZONAAC', 'ZONACOMERCIAL', 'ZONA'],
-    supervisor: ['SUPERVISOR'],
+    zonaComercial: ['ZONAAC', 'ZONACOMERCIAL', 'ZONA', 'ZONAVENTAS', 'ZONAACTUAL', 'CODZONA'],
+    supervisor: ['SUPERVISOR', 'SUPERVISORDEVENTAS', 'SUPERVISORVENTAS', 'SUPERVISORCOMERCIAL', 'COORDINADOR'],
     agente: ['AGENTE']
   };
 
@@ -9801,6 +9802,18 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           for (const campo in ALIAS_CAMPOS_AVANCE_HR) {
             if (ALIAS_CAMPOS_AVANCE_HR[campo].indexOf(norm) !== -1) { mapa[colIdx] = campo; break; }
           }
+        });
+        // Respaldo para zona/supervisor/agente: como el nombre exacto de esa columna varía mucho
+        // de un archivo a otro (por ejemplo "Zona Comercial", "Supervisor de Ventas", "SupervisorAC"),
+        // si no se encontró por coincidencia exacta se busca cualquier encabezado que solo CONTENGA
+        // esa palabra (y que no se haya usado ya para otro campo).
+        fila.forEach(function (celda, colIdx) {
+          if (mapa[colIdx]) return;
+          const norm = normalizarClaveExcel(celda);
+          if (!norm) return;
+          if (norm.indexOf('ZONA') !== -1 && Object.values(mapa).indexOf('zonaComercial') === -1) mapa[colIdx] = 'zonaComercial';
+          else if (norm.indexOf('SUPERVISOR') !== -1 && Object.values(mapa).indexOf('supervisor') === -1) mapa[colIdx] = 'supervisor';
+          else if (norm.indexOf('AGENTE') !== -1 && Object.values(mapa).indexOf('agente') === -1) mapa[colIdx] = 'agente';
         });
         const camposEncontrados = Object.values(mapa);
         const tieneClaves = CAMPOS_CLAVE.every(function (c) { return camposEncontrados.indexOf(c) !== -1; });
@@ -10138,6 +10151,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     document.getElementById('infoAvanceHR').textContent = avanceHR.length > 0
       ? `${avanceHR.length} registro(s) guardados en tu historial (${fechasHR} fecha(s)).`
       : 'Sin datos importados.';
+
+    // Zona comercial y supervisor son columnas opcionales (las usa "Análisis de Rechazos"); si en
+    // TODO el historial de la Hoja del BEES ninguna fila trajo esos datos, se avisa en pantalla —
+    // seguramente el archivo usa un encabezado distinto a los que reconocemos ("zonaac"/"zona",
+    // "supervisor"), y así el usuario no se queda adivinando por qué salen vacíos.
+    const avisoZonaSup = document.getElementById('avisoZonaSupervisorAvance');
+    if (avanceHR.length > 0) {
+      const sinZona = !avanceHR.some(function (r) { return r.zonaComercial; });
+      const sinSupervisor = !avanceHR.some(function (r) { return r.supervisor; });
+      if (sinZona || sinSupervisor) {
+        const faltantes = [sinZona ? 'zona comercial' : null, sinSupervisor ? 'supervisor' : null].filter(Boolean).join(' ni de ');
+        avisoZonaSup.textContent = '⚠️ No se encontró ninguna columna de ' + faltantes + ' en el archivo (para "Análisis de Rechazos"). Si tu Excel sí las tiene, dinos el nombre exacto del encabezado para reconocerlo.';
+        avisoZonaSup.style.display = 'block';
+      } else {
+        avisoZonaSup.style.display = 'none';
+      }
+    } else {
+      avisoZonaSup.style.display = 'none';
+    }
 
     const hayDatos = avanceRD.length > 0 || avanceHR.length > 0;
     document.getElementById('resumenImportAvance').textContent = hayDatos

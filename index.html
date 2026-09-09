@@ -3298,6 +3298,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <button type="button" class="subnav-btn" data-subvista-mapa="basedatos">📋 Base de datos</button>
       <button type="button" class="subnav-btn" data-subvista-mapa="avance">📈 Avance de Rutas</button>
       <button type="button" class="subnav-btn" data-subvista-mapa="dashboardmr">📊 Dashboard MR</button>
+      <button type="button" class="subnav-btn" data-subvista-mapa="reincidencias">🔁 Análisis de Rechazos</button>
     </div>
 
     <!-- ---- Sub-vista: Mapa (filtros + mapa interactivo) ---- -->
@@ -3724,6 +3725,93 @@ svg.leaflet-image-layer.leaflet-interactive path {
       </div>
 
     </div>
+
+    <!-- ---- ANÁLISIS DE RECHAZOS Y REINCIDENCIAS ---- -->
+    <div id="subvistaMapaReincidencias" style="display:none">
+      <div class="panel">
+        <h2>Análisis de Rechazos y Reincidencias</h2>
+        <p class="ayuda-guardar" style="margin:0 0 12px 0;">Analiza los rechazos y entregas parciales de la Hoja del BEES por <strong>motivo</strong>, <strong>zona comercial</strong> y <strong>supervisor de ventas</strong>, e identifica clientes reincidentes (con más de un rechazo). Usa el mismo historial que ya importaste en "Avance de Rutas".</p>
+        <div class="fila-filtros-mapa">
+          <div class="campo"><label for="reincFiltroDesde">Desde</label><input type="date" id="reincFiltroDesde"></div>
+          <div class="campo"><label for="reincFiltroHasta">Hasta</label><input type="date" id="reincFiltroHasta"></div>
+          <div class="campo"><label for="reincFiltroZona">Zona comercial</label><select id="reincFiltroZona"><option value="">Todas las zonas</option></select></div>
+          <div class="campo"><label for="reincFiltroSupervisor">Supervisor</label><select id="reincFiltroSupervisor"><option value="">Todos los supervisores</option></select></div>
+          <div class="campo"><label for="reincFiltroMotivo">Motivo</label><select id="reincFiltroMotivo"><option value="">Todos los motivos</option></select></div>
+          <div class="campo">
+            <label for="reincFiltroMinRechazos">Reincidencia mínima</label>
+            <select id="reincFiltroMinRechazos">
+              <option value="1">1 o más rechazos</option>
+              <option value="2" selected>2 o más rechazos</option>
+              <option value="3">3 o más rechazos</option>
+              <option value="5">5 o más rechazos</option>
+            </select>
+          </div>
+        </div>
+        <div class="fila-filtros-mapa" style="margin-top:10px;">
+          <div class="campo campo-buscar-mapa" style="flex:1;">
+            <label for="reincBuscadorCliente">Buscar cliente (código o nombre) — muestra su historial completo abajo</label>
+            <input type="text" id="reincBuscadorCliente" placeholder="Ej. 10262396, Tottus...">
+          </div>
+          <div class="campo"><label>&nbsp;</label><button type="button" class="btn-secundario" id="btnReincQuitarFiltros">Quitar filtros</button></div>
+        </div>
+      </div>
+
+      <div class="stat-tiles" id="statTilesReincidencias"></div>
+
+      <div class="grid-dashboard-mr-donas">
+        <div class="panel panel-chart">
+          <h2>Rechazos por Motivo</h2>
+          <div class="chart-wrap chart-wrap-lg"><canvas id="chartReincPorMotivo"></canvas></div>
+        </div>
+        <div class="panel panel-chart">
+          <h2>Rechazos por Zona Comercial</h2>
+          <div class="chart-wrap chart-wrap-lg"><canvas id="chartReincPorZona"></canvas></div>
+        </div>
+      </div>
+      <div class="grid-dashboard-mr-donas">
+        <div class="panel panel-chart">
+          <h2>Rechazos por Supervisor de Ventas</h2>
+          <div class="chart-wrap chart-wrap-lg"><canvas id="chartReincPorSupervisor"></canvas></div>
+        </div>
+        <div class="panel panel-chart">
+          <h2>Top Clientes Reincidentes</h2>
+          <div class="chart-wrap chart-wrap-lg"><canvas id="chartReincTopClientes"></canvas></div>
+        </div>
+      </div>
+
+      <div class="panel" id="panelDetalleClienteReinc" style="display:none;">
+        <h2 id="tituloDetalleClienteReinc">Detalle del cliente</h2>
+        <div class="stat-tiles" id="statTilesDetalleClienteReinc"></div>
+        <div class="tabla-wrap">
+          <table class="tabla-mapa">
+            <thead><tr><th>Fecha</th><th>Ruta</th><th>Estado</th><th>Motivo</th><th>Vol. Programado</th><th>Vol. Rechazado</th><th>Supervisor</th><th>Zona</th></tr></thead>
+            <tbody id="cuerpoDetalleClienteReinc"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Clientes reincidentes</h2>
+        <p class="ayuda-guardar" style="margin:0 0 8px 0;">Clientes con la cantidad mínima de rechazos elegida arriba, ordenados de mayor a menor. Haz clic en el código para ver su historial completo.</p>
+        <div class="tabla-wrap">
+          <table class="tabla-mapa">
+            <thead><tr><th>Código</th><th>Cliente</th><th>Zona</th><th>Supervisor</th><th>Ruta</th><th>N° Rechazos</th><th>Motivo más frecuente</th><th>Vol. Rechazado</th><th>Última fecha</th></tr></thead>
+            <tbody id="cuerpoTablaReincidentes"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Detalle de todos los rechazos y entregas parciales</h2>
+        <div class="tabla-wrap">
+          <table class="tabla-mapa">
+            <thead><tr><th>Fecha</th><th>Código</th><th>Cliente</th><th>Ruta</th><th>Zona</th><th>Supervisor</th><th>Estado</th><th>Motivo</th><th>Vol. Rechazado</th></tr></thead>
+            <tbody id="cuerpoTablaDetalleRechazosReinc"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </section>
 
   <section id="vistaLiquidaciones" class="vista" style="display:none">
@@ -9563,7 +9651,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     mapa: document.getElementById('subvistaMapaMapa'),
     basedatos: document.getElementById('subvistaMapaBaseDatos'),
     avance: document.getElementById('subvistaMapaAvance'),
-    dashboardmr: document.getElementById('subvistaMapaDashboardMR')
+    dashboardmr: document.getElementById('subvistaMapaDashboardMR'),
+    reincidencias: document.getElementById('subvistaMapaReincidencias')
   };
 
   function mostrarSubVistaMapa(nombre) {
@@ -9581,6 +9670,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       renderAvanceRutas();
     } else if (nombre === 'dashboardmr') {
       renderDashboardMR();
+    } else if (nombre === 'reincidencias') {
+      renderAnalisisRechazos();
     } else {
       renderTablaMapa(buscadorMapa.value);
     }
@@ -9688,7 +9779,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     hlFact: ['HLFACT'],
     entregaCjs: ['ENTREGACJS'],
     cjasRechazado: ['CJASRECHAZADO'],
-    empresa: ['EMPRESA']
+    empresa: ['EMPRESA'],
+    zonaComercial: ['ZONAAC', 'ZONACOMERCIAL', 'ZONA'],
+    supervisor: ['SUPERVISOR'],
+    agente: ['AGENTE']
   };
 
   function extraerAvanceHojaBeesDeExcel(libro) {
@@ -9720,7 +9814,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         const nuevo = {
           entregado: '', alerta: '', rechazo: '', motivoRechazo: '', ruta: '', vehiculo: '', fecha: '', codigo: '',
           cliente: '', direccion: '', ciudad: '', viaje: '', hlProgramado: 0, hlFact: null, entregaCjs: 0, cjasRechazado: 0,
-          empresa: ''
+          empresa: '', zonaComercial: '', supervisor: '', agente: ''
         };
         let tieneAlgo = false;
         Object.keys(mapaColumnas).forEach(function (colIdx) {
@@ -10121,6 +10215,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const ciudad = (hr && hr.ciudad) || '';
       const viaje = (hr && hr.viaje) || '';
       const empresa = (hr && hr.empresa) || '';
+      const zonaComercial = (hr && hr.zonaComercial) || '';
+      const supervisor = (hr && hr.supervisor) || '';
+      const agente = (hr && hr.agente) || '';
       const alerta = !!(hr && hr.alerta === 'Sí');
       // La fecha de la visita viene de la Hoja del BEES (columna FECHA); si solo se cargó la Hoja
       // de Ruta, se usa su fecha de tour como respaldo (mismo formato ISO ya normalizado al importar).
@@ -10196,6 +10293,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return {
         codigo: codigo, ruta: ruta, cliente: cliente, vehiculo: vehiculo, direccion: direccion, ciudad: ciudad, viaje: viaje,
         empresa: empresa, alerta: alerta, fecha: fecha, cajasRechazado: cajasRechazado,
+        zonaComercial: zonaComercial, supervisor: supervisor, agente: agente,
         volumenProgramado: volumenProgramado, volumenEntregado: volumenEntregado, volumenRechazado: volumenRechazado,
         estado: estado, motivoRechazo: motivoRechazo, status: rd ? rd.status : ''
       };
@@ -13430,6 +13528,305 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       });
       renderVistaFlota();
     });
+  });
+
+  /* ===================================================================
+     ANÁLISIS DE RECHAZOS Y REINCIDENCIAS
+     Usa el mismo historial de construirAvanceUnificado() (Hoja de Ruta + Hoja del BEES) que ya
+     se importa en Avance de Rutas, agregado por motivo, zona comercial y supervisor de ventas, y
+     con un ranking de clientes reincidentes (2 o más rechazos/entregas parciales).
+  =================================================================== */
+  function poblarFiltrosReincidencias(todos) {
+    const zonas = Array.from(new Set(todos.map(function (r) { return r.zonaComercial; }).filter(Boolean))).sort();
+    const supervisores = Array.from(new Set(todos.map(function (r) { return r.supervisor; }).filter(Boolean))).sort();
+    const motivos = Array.from(new Set(
+      todos.filter(function (r) { return r.estado === 'Rechazado' || r.estado === 'Parcial'; })
+        .map(function (r) { return etiquetaMotivo(r.motivoRechazo); })
+    )).sort();
+
+    function llenarSelect(id, opciones, etiquetaTodos) {
+      const sel = document.getElementById(id);
+      const valorActual = sel.value;
+      sel.innerHTML = '<option value="">' + etiquetaTodos + '</option>' + opciones.map(function (o) { return '<option value="' + escaparHtml(o) + '">' + escaparHtml(o) + '</option>'; }).join('');
+      if (opciones.indexOf(valorActual) !== -1) sel.value = valorActual;
+    }
+    llenarSelect('reincFiltroZona', zonas, 'Todas las zonas');
+    llenarSelect('reincFiltroSupervisor', supervisores, 'Todos los supervisores');
+    llenarSelect('reincFiltroMotivo', motivos, 'Todos los motivos');
+  }
+
+  // Agrupa una lista de rechazos/parciales por una clave (motivo, zona, supervisor...), contando
+  // casos y sumando el volumen rechazado, ordenado de mayor a menor cantidad de casos.
+  function agruparRechazosPor(lista, obtenerClave) {
+    const mapa = {};
+    lista.forEach(function (r) {
+      const clave = obtenerClave(r) || '(Sin dato)';
+      if (!mapa[clave]) mapa[clave] = { clave: clave, count: 0, volumen: 0 };
+      mapa[clave].count++;
+      mapa[clave].volumen += r.volumenRechazado || 0;
+    });
+    return Object.keys(mapa).map(function (k) { return mapa[k]; }).sort(function (a, b) { return b.count - a.count; });
+  }
+
+  // Agrupa los rechazos/parciales por cliente (código), para el ranking de reincidencia: cuenta
+  // sus casos, suma su volumen rechazado, guarda su motivo más frecuente y sus datos más recientes
+  // (zona, supervisor, ruta, cliente) según la última fecha en la que tuvo un caso.
+  function agruparRechazosPorCliente(lista) {
+    const mapa = {};
+    lista.forEach(function (r) {
+      if (!mapa[r.codigo]) {
+        mapa[r.codigo] = {
+          codigo: r.codigo, cliente: r.cliente, zona: r.zonaComercial, supervisor: r.supervisor, ruta: r.ruta,
+          count: 0, volumen: 0, motivos: {}, ultimaFecha: ''
+        };
+      }
+      const g = mapa[r.codigo];
+      g.count++;
+      g.volumen += r.volumenRechazado || 0;
+      const m = etiquetaMotivo(r.motivoRechazo);
+      g.motivos[m] = (g.motivos[m] || 0) + 1;
+      if (r.fecha >= g.ultimaFecha) {
+        g.ultimaFecha = r.fecha;
+        g.cliente = r.cliente || g.cliente;
+        g.zona = r.zonaComercial || g.zona;
+        g.supervisor = r.supervisor || g.supervisor;
+        g.ruta = r.ruta || g.ruta;
+      }
+    });
+    return Object.keys(mapa).map(function (k) { return mapa[k]; }).map(function (g) {
+      const motivoPrincipal = Object.keys(g.motivos).sort(function (a, b) { return g.motivos[b] - g.motivos[a]; })[0] || '';
+      return Object.assign({}, g, { motivoPrincipal: motivoPrincipal });
+    }).sort(function (a, b) { return b.count - a.count || b.volumen - a.volumen; });
+  }
+
+  function renderGraficaBarraReincidencias(idCanvas, datos, colorBarra) {
+    const top = datos.slice(0, 15);
+    crearOActualizarChart(idCanvas, {
+      type: 'bar',
+      data: {
+        labels: top.map(function (d) { return d.clave; }),
+        datasets: [{
+          label: 'N° de casos', backgroundColor: colorBarra,
+          data: top.map(function (d) { return d.count; }),
+          __formatoEtiqueta: function (v) { return String(v); }
+        }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { ticks: { precision: 0 } } }
+      },
+      plugins: [pluginEtiquetasDashboardMR]
+    });
+  }
+
+  function renderGraficaTopClientesReinc(clientesReinc) {
+    const top = clientesReinc.slice(0, 15);
+    crearOActualizarChart('chartReincTopClientes', {
+      type: 'bar',
+      data: {
+        labels: top.map(function (c) { return c.codigo + ' — ' + (c.cliente || '').slice(0, 22); }),
+        datasets: [{
+          label: 'N° de rechazos', backgroundColor: COLOR_ROJO_CHART,
+          data: top.map(function (c) { return c.count; }),
+          __formatoEtiqueta: function (v) { return String(v); }
+        }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { ticks: { precision: 0 } } }
+      },
+      plugins: [pluginEtiquetasDashboardMR]
+    });
+  }
+
+  function renderTablaReincidentes(clientesReinc) {
+    const cuerpo = document.getElementById('cuerpoTablaReincidentes');
+    if (clientesReinc.length === 0) {
+      cuerpo.innerHTML = '<tr><td colspan="9" class="vacio">No hay clientes reincidentes con la selección actual.</td></tr>';
+      return;
+    }
+    cuerpo.innerHTML = clientesReinc.map(function (c) {
+      return `
+        <tr>
+          <td><a href="#" class="link-cliente-reinc" data-codigo="${escaparHtml(c.codigo)}">${escaparHtml(c.codigo)}</a></td>
+          <td>${escaparHtml(c.cliente)}</td>
+          <td>${escaparHtml(c.zona) || '—'}</td>
+          <td>${escaparHtml(c.supervisor) || '—'}</td>
+          <td>${escaparHtml(c.ruta) || '—'}</td>
+          <td><span class="semaforo-flota semaforo-rojo">${c.count}</span></td>
+          <td>${escaparHtml(c.motivoPrincipal)}</td>
+          <td>${formatearHl(c.volumen)}</td>
+          <td>${formatearFecha(c.ultimaFecha)}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderTablaDetalleRechazosReinc(lista) {
+    const cuerpo = document.getElementById('cuerpoTablaDetalleRechazosReinc');
+    const ordenada = lista.slice().sort(function (a, b) { return (b.fecha || '').localeCompare(a.fecha || ''); });
+    if (ordenada.length === 0) {
+      cuerpo.innerHTML = '<tr><td colspan="9" class="vacio">No hay rechazos ni entregas parciales con la selección actual.</td></tr>';
+      return;
+    }
+    cuerpo.innerHTML = ordenada.slice(0, 300).map(function (r) {
+      const badge = r.estado === 'Rechazado' ? '<span class="badge badge-alerta">Rechazado</span>' : '<span class="badge badge-parcial">Entrega Parcial</span>';
+      return `
+        <tr>
+          <td>${formatearFecha(r.fecha)}</td>
+          <td>${escaparHtml(r.codigo)}</td>
+          <td>${escaparHtml(r.cliente)}</td>
+          <td>${escaparHtml(r.ruta)}</td>
+          <td>${escaparHtml(r.zonaComercial) || '—'}</td>
+          <td>${escaparHtml(r.supervisor) || '—'}</td>
+          <td>${badge}</td>
+          <td>${escaparHtml(etiquetaMotivo(r.motivoRechazo))}</td>
+          <td>${formatearHl(r.volumenRechazado)}</td>
+        </tr>
+      `;
+    }).join('') + (ordenada.length > 300 ? '<tr><td colspan="9" class="vacio">Mostrando los 300 más recientes de ' + ordenada.length + '.</td></tr>' : '');
+  }
+
+  // Muestra el historial COMPLETO de un cliente (todas sus visitas, no solo los rechazos), para
+  // entender su comportamiento general y no solo sus problemas.
+  function mostrarDetalleClienteReinc(texto, todos) {
+    const panel = document.getElementById('panelDetalleClienteReinc');
+    if (!texto) { panel.style.display = 'none'; return; }
+    const textoLower = texto.toLowerCase().trim();
+    const registros = todos.filter(function (r) { return (r.codigo + ' ' + r.cliente).toLowerCase().indexOf(textoLower) !== -1; })
+      .sort(function (a, b) { return (b.fecha || '').localeCompare(a.fecha || ''); });
+    if (registros.length === 0) {
+      panel.style.display = 'block';
+      document.getElementById('tituloDetalleClienteReinc').textContent = 'Detalle del cliente';
+      document.getElementById('statTilesDetalleClienteReinc').innerHTML = '';
+      document.getElementById('cuerpoDetalleClienteReinc').innerHTML = '<tr><td colspan="8" class="vacio">No se encontró ningún cliente con ese código o nombre.</td></tr>';
+      return;
+    }
+    panel.style.display = 'block';
+    const ref = registros[0];
+    document.getElementById('tituloDetalleClienteReinc').textContent = 'Detalle: ' + ref.codigo + ' — ' + ref.cliente;
+    const visitas = registros.length;
+    const entregados = registros.filter(function (r) { return r.estado === 'Entregado'; }).length;
+    const rechazados = registros.filter(function (r) { return r.estado === 'Rechazado'; }).length;
+    const parciales = registros.filter(function (r) { return r.estado === 'Parcial'; }).length;
+    const volRechTotal = registros.reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0);
+    document.getElementById('statTilesDetalleClienteReinc').innerHTML = `
+      <div class="stat-tile stat-hero"><div class="stat-label">Visitas registradas</div><div class="stat-valor">${visitas}</div></div>
+      <div class="stat-tile stat-verde"><div class="stat-label">Entregadas</div><div class="stat-valor">${entregados}</div></div>
+      <div class="stat-tile stat-naranja"><div class="stat-label">Parciales</div><div class="stat-valor">${parciales}</div></div>
+      <div class="stat-tile stat-rojo"><div class="stat-label">Rechazadas</div><div class="stat-valor">${rechazados}</div></div>
+      <div class="stat-tile stat-azul-tile"><div class="stat-label">Vol. rechazado acumulado</div><div class="stat-valor">${formatearHl(volRechTotal)}</div></div>
+    `;
+    document.getElementById('cuerpoDetalleClienteReinc').innerHTML = registros.map(function (r) {
+      let badge = '<span class="badge badge-no">Pendiente</span>';
+      if (r.estado === 'Entregado') badge = '<span class="badge badge-si">Entregado</span>';
+      else if (r.estado === 'Parcial') badge = '<span class="badge badge-parcial">Entrega Parcial</span>';
+      else if (r.estado === 'Rechazado') badge = '<span class="badge badge-alerta">Rechazado</span>';
+      else if (r.estado === 'Desplanificado') badge = '<span class="badge badge-desplanificado">Desplanificado</span>';
+      return `
+        <tr>
+          <td>${formatearFecha(r.fecha)}</td>
+          <td>${escaparHtml(r.ruta)}</td>
+          <td>${badge}</td>
+          <td>${(r.estado === 'Rechazado' || r.estado === 'Parcial') ? escaparHtml(etiquetaMotivo(r.motivoRechazo)) : '—'}</td>
+          <td>${formatearHl(r.volumenProgramado)}</td>
+          <td>${formatearHl(r.volumenRechazado)}</td>
+          <td>${escaparHtml(r.supervisor) || '—'}</td>
+          <td>${escaparHtml(r.zonaComercial) || '—'}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderAnalisisRechazos() {
+    const todos = construirAvanceUnificado();
+    poblarFiltrosReincidencias(todos);
+
+    const desde = document.getElementById('reincFiltroDesde').value;
+    const hasta = document.getElementById('reincFiltroHasta').value;
+    const zona = document.getElementById('reincFiltroZona').value;
+    const supervisor = document.getElementById('reincFiltroSupervisor').value;
+    const motivo = document.getElementById('reincFiltroMotivo').value;
+    const minRech = parseInt(document.getElementById('reincFiltroMinRechazos').value, 10) || 1;
+    const textoCliente = document.getElementById('reincBuscadorCliente').value;
+
+    const enRango = todos.filter(function (r) {
+      if (desde && r.fecha < desde) return false;
+      if (hasta && r.fecha > hasta) return false;
+      if (zona && r.zonaComercial !== zona) return false;
+      if (supervisor && r.supervisor !== supervisor) return false;
+      return true;
+    });
+
+    let rechazos = enRango.filter(function (r) { return r.estado === 'Rechazado' || r.estado === 'Parcial'; });
+    if (motivo) rechazos = rechazos.filter(function (r) { return etiquetaMotivo(r.motivoRechazo) === motivo; });
+
+    const porMotivo = agruparRechazosPor(rechazos, function (r) { return etiquetaMotivo(r.motivoRechazo); });
+    const porZona = agruparRechazosPor(rechazos, function (r) { return r.zonaComercial; });
+    const porSupervisor = agruparRechazosPor(rechazos, function (r) { return r.supervisor; });
+    const porCliente = agruparRechazosPorCliente(rechazos);
+    const reincidentes = porCliente.filter(function (c) { return c.count >= minRech; });
+
+    const clientesAfectados = porCliente.length;
+    const motivoTop = porMotivo.length > 0 ? porMotivo[0].clave : '—';
+
+    document.getElementById('statTilesReincidencias').innerHTML = `
+      <div class="stat-tile stat-hero">
+        <div class="stat-label">Rechazos / Parciales en la selección</div>
+        <div class="stat-valor">${rechazos.length}</div>
+      </div>
+      <div class="stat-tile stat-rojo">
+        <div class="stat-label">Clientes distintos afectados</div>
+        <div class="stat-valor">${clientesAfectados}</div>
+      </div>
+      <div class="stat-tile stat-naranja">
+        <div class="stat-label">Clientes reincidentes (≥ ${minRech})</div>
+        <div class="stat-valor">${reincidentes.length}</div>
+      </div>
+      <div class="stat-tile stat-azul-tile">
+        <div class="stat-label">Volumen rechazado total</div>
+        <div class="stat-valor">${formatearHl(rechazos.reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0))}</div>
+      </div>
+      <div class="stat-tile stat-verde">
+        <div class="stat-label">Motivo más frecuente</div>
+        <div class="stat-valor" style="font-size:14px;">${escaparHtml(motivoTop)}</div>
+      </div>
+    `;
+
+    renderGraficaBarraReincidencias('chartReincPorMotivo', porMotivo, COLOR_ROJO_CHART);
+    renderGraficaBarraReincidencias('chartReincPorZona', porZona, COLOR_AZUL_CHART);
+    renderGraficaBarraReincidencias('chartReincPorSupervisor', porSupervisor, '#8e44ad');
+    renderGraficaTopClientesReinc(reincidentes.length > 0 ? reincidentes : porCliente);
+
+    renderTablaReincidentes(reincidentes);
+    renderTablaDetalleRechazosReinc(rechazos);
+    mostrarDetalleClienteReinc(textoCliente, todos);
+  }
+
+  ['reincFiltroDesde', 'reincFiltroHasta', 'reincFiltroZona', 'reincFiltroSupervisor', 'reincFiltroMotivo', 'reincFiltroMinRechazos'].forEach(function (id) {
+    document.getElementById(id).addEventListener('change', renderAnalisisRechazos);
+  });
+  document.getElementById('reincBuscadorCliente').addEventListener('input', function () {
+    mostrarDetalleClienteReinc(this.value, construirAvanceUnificado());
+  });
+  document.getElementById('btnReincQuitarFiltros').addEventListener('click', function () {
+    ['reincFiltroDesde', 'reincFiltroHasta', 'reincFiltroZona', 'reincFiltroSupervisor', 'reincFiltroMotivo'].forEach(function (id) {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('reincFiltroMinRechazos').value = '2';
+    document.getElementById('reincBuscadorCliente').value = '';
+    renderAnalisisRechazos();
+  });
+  document.getElementById('cuerpoTablaReincidentes').addEventListener('click', function (e) {
+    const link = e.target.closest('.link-cliente-reinc');
+    if (!link) return;
+    e.preventDefault();
+    const codigo = link.getAttribute('data-codigo');
+    document.getElementById('reincBuscadorCliente').value = codigo;
+    mostrarDetalleClienteReinc(codigo, construirAvanceUnificado());
+    document.getElementById('panelDetalleClienteReinc').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   /* ===================================================================

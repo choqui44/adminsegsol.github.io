@@ -444,6 +444,41 @@
     cursor: pointer;
   }
   .tira-fotos-flota { display: flex; gap: 6px; flex-wrap: wrap; }
+  .campo-multimedia-flota { grid-column: 1 / -1; }
+  .previsualizacion-multimedia-flota {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .item-previsualizacion-multimedia { position: relative; display: inline-block; }
+  .item-previsualizacion-multimedia .miniatura-foto-flota { width: 64px; height: 64px; }
+  .btn-quitar-media-flota {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--rojo);
+    color: #fff;
+    border: 2px solid #fff;
+    font-size: 11px;
+    line-height: 13px;
+    text-align: center;
+    cursor: pointer;
+    padding: 0;
+  }
+  .etiqueta-video-flota {
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    background: rgba(0,0,0,.6);
+    color: #fff;
+    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
   .tarjeta-control-diario {
     background: #fff;
     border: 1px solid var(--borde);
@@ -4060,6 +4095,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <button type="button" class="subnav-btn" data-subvista-flota="fallascamion">⚠️ Fallos de Camiones</button>
       <button type="button" class="subnav-btn" data-subvista-flota="reparaciones">🔧 Reparaciones</button>
       <button type="button" class="subnav-btn" data-subvista-flota="combustible">⛽ Combustible</button>
+      <button type="button" class="subnav-btn" data-subvista-flota="documentos">📄 Documentos y Vencimientos</button>
     </div>
 
     <!-- ---- CARRETAS ---- -->
@@ -4109,7 +4145,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
             </select>
           </div>
           <div class="campo"><label for="fallaCarretaFecha">Fecha de reporte</label><input type="date" id="fallaCarretaFecha"></div>
-          <div class="campo"><label for="fallaCarretaFoto">Foto (opcional)</label><input type="file" accept="image/*" id="fallaCarretaFoto" class="file-visible"></div>
+          <div class="campo campo-multimedia-flota"><label for="fallaCarretaFoto">Fotos / Videos (opcional)</label><input type="file" accept="image/*,video/*" multiple id="fallaCarretaFoto" class="file-visible">
+            <div class="previsualizacion-multimedia-flota" id="fallaCarretaFotoPreview"></div>
+          </div>
           <div class="campo full"><label for="fallaCarretaDescripcion">Descripción</label><textarea id="fallaCarretaDescripcion" rows="2"></textarea></div>
           <div class="campo full grupo-botones"><button type="submit" class="btn-primario">Reportar falla</button></div>
         </form>
@@ -4170,7 +4208,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <div class="campo"><label for="controlDiarioEstado">Estado del camión</label>
             <select id="controlDiarioEstado"><option value="Bien">Bien</option><option value="Con daño">Con daño</option></select>
           </div>
-          <div class="campo"><label for="controlDiarioFoto">Foto</label><input type="file" accept="image/*" id="controlDiarioFoto" class="file-visible" required></div>
+          <div class="campo campo-multimedia-flota"><label for="controlDiarioFoto">Fotos / Videos</label><input type="file" accept="image/*,video/*" multiple id="controlDiarioFoto" class="file-visible">
+            <div class="previsualizacion-multimedia-flota" id="controlDiarioFotoPreview"></div>
+          </div>
           <div class="campo full"><label for="controlDiarioComentario">Comentario del chofer</label><textarea id="controlDiarioComentario" rows="2"></textarea></div>
           <div class="campo full grupo-botones"><button type="submit" class="btn-primario">Guardar</button></div>
         </form>
@@ -4197,7 +4237,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
             </select>
           </div>
           <div class="campo"><label for="fallaCamionFecha">Fecha de reporte</label><input type="date" id="fallaCamionFecha"></div>
-          <div class="campo"><label for="fallaCamionFoto">Foto (opcional)</label><input type="file" accept="image/*" id="fallaCamionFoto" class="file-visible"></div>
+          <div class="campo campo-multimedia-flota"><label for="fallaCamionFoto">Fotos / Videos (opcional)</label><input type="file" accept="image/*,video/*" multiple id="fallaCamionFoto" class="file-visible">
+            <div class="previsualizacion-multimedia-flota" id="fallaCamionFotoPreview"></div>
+          </div>
           <div class="campo full"><label for="fallaCamionDescripcion">Descripción</label><textarea id="fallaCamionDescripcion" rows="2"></textarea></div>
           <div class="campo full grupo-botones"><button type="submit" class="btn-primario">Reportar fallo</button></div>
         </form>
@@ -4223,7 +4265,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <div class="campo"><label for="reparacionFlotaPlaca">Placa de camión (si aplica)</label><input type="text" id="reparacionFlotaPlaca" list="listaPlacasFlota"></div>
           <div class="campo"><label for="reparacionFlotaFecha">Fecha</label><input type="date" id="reparacionFlotaFecha"></div>
           <div class="campo"><label for="reparacionFlotaCosto">Costo (opcional)</label><input type="number" step="0.01" min="0" id="reparacionFlotaCosto"></div>
-          <div class="campo"><label for="reparacionFlotaFoto">Foto</label><input type="file" accept="image/*" id="reparacionFlotaFoto" class="file-visible"></div>
+          <div class="campo campo-multimedia-flota"><label for="reparacionFlotaFoto">Fotos / Videos</label><input type="file" accept="image/*,video/*" multiple id="reparacionFlotaFoto" class="file-visible">
+            <div class="previsualizacion-multimedia-flota" id="reparacionFlotaFotoPreview"></div>
+          </div>
           <div class="campo"><label for="reparacionFlotaVincular">Vincular a un fallo abierto (opcional, lo cierra)</label><select id="reparacionFlotaVincular"><option value="">— Ninguno —</option></select></div>
           <div class="campo full"><label for="reparacionFlotaDescripcion">¿Qué se reparó / se hizo?</label><textarea id="reparacionFlotaDescripcion" rows="2" required></textarea></div>
           <div class="campo full grupo-botones"><button type="submit" class="btn-primario">Guardar reparación</button></div>
@@ -4252,7 +4296,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <div class="campo"><label for="combustibleKm">Kilometraje del día</label><input type="number" min="0" id="combustibleKm"></div>
 
           <h3 class="subtitulo-grupo">Salida</h3>
-          <div class="campo"><label for="combustibleFotoSalida">Foto de salida (medidor)</label><input type="file" accept="image/*" id="combustibleFotoSalida" class="file-visible"></div>
+          <div class="campo campo-multimedia-flota"><label for="combustibleFotoSalida">Fotos / Videos de salida (medidor)</label><input type="file" accept="image/*,video/*" multiple id="combustibleFotoSalida" class="file-visible">
+            <div class="previsualizacion-multimedia-flota" id="combustibleFotoSalidaPreview"></div>
+          </div>
           <div class="campo"><label for="combustibleNivelSalida">Nivel al salir (según la foto)</label>
             <select id="combustibleNivelSalida">
               <option value="">— Sin dato —</option>
@@ -4262,7 +4308,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
           </div>
 
           <h3 class="subtitulo-grupo">Retorno</h3>
-          <div class="campo"><label for="combustibleFotoRetorno">Foto de retorno (medidor)</label><input type="file" accept="image/*" id="combustibleFotoRetorno" class="file-visible"></div>
+          <div class="campo campo-multimedia-flota"><label for="combustibleFotoRetorno">Fotos / Videos de retorno (medidor)</label><input type="file" accept="image/*,video/*" multiple id="combustibleFotoRetorno" class="file-visible">
+            <div class="previsualizacion-multimedia-flota" id="combustibleFotoRetornoPreview"></div>
+          </div>
           <div class="campo"><label for="combustibleNivelRetorno">Nivel al volver (según la foto)</label>
             <select id="combustibleNivelRetorno">
               <option value="">— Sin dato —</option>
@@ -4272,7 +4320,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
           </div>
 
           <h3 class="subtitulo-grupo">Abastecimiento (si hubo)</h3>
-          <div class="campo"><label for="combustibleFotoAbastecimiento">Foto del abastecimiento</label><input type="file" accept="image/*" id="combustibleFotoAbastecimiento" class="file-visible"></div>
+          <div class="campo campo-multimedia-flota"><label for="combustibleFotoAbastecimiento">Fotos / Videos del abastecimiento</label><input type="file" accept="image/*,video/*" multiple id="combustibleFotoAbastecimiento" class="file-visible">
+            <div class="previsualizacion-multimedia-flota" id="combustibleFotoAbastecimientoPreview"></div>
+          </div>
           <div class="campo"><label for="combustibleGalones">Galones cargados</label><input type="number" step="0.01" min="0" id="combustibleGalones"></div>
           <div class="campo"><label for="combustibleMonto">Monto pagado (opcional)</label><input type="number" step="0.01" min="0" id="combustibleMonto"></div>
 
@@ -4307,7 +4357,58 @@ svg.leaflet-image-layer.leaflet-interactive path {
       </div>
     </div>
 
+    <!-- ---- DOCUMENTOS Y VENCIMIENTOS (SOAT, Revisión Técnica, etc.) ---- -->
+    <div id="subvistaFlotaDocumentos" style="display:none">
+      <div class="panel">
+        <h2 id="tituloFormDocumentoFlota">Registrar documento</h2>
+        <form id="formDocumentoFlota" class="form-grid">
+          <input type="hidden" id="documentoFlotaId">
+          <div class="campo"><label for="documentoFlotaPlaca">Placa</label><input type="text" id="documentoFlotaPlaca" list="listaPlacasFlota" required></div>
+          <div class="campo"><label for="documentoFlotaTipo">Tipo de documento</label>
+            <select id="documentoFlotaTipo">
+              <option>SOAT</option>
+              <option>Revisión Técnica</option>
+              <option>Tarjeta de Propiedad</option>
+              <option>Certificado de Habilitación Vehicular</option>
+              <option>Licencia de Conducir (del chofer asignado)</option>
+              <option>Póliza de Seguro</option>
+              <option>Otro</option>
+            </select>
+          </div>
+          <div class="campo"><label for="documentoFlotaNumero">N° de documento (opcional)</label><input type="text" id="documentoFlotaNumero"></div>
+          <div class="campo"><label for="documentoFlotaEmision">Fecha de emisión (opcional)</label><input type="date" id="documentoFlotaEmision"></div>
+          <div class="campo"><label for="documentoFlotaVencimiento">Fecha de vencimiento</label><input type="date" id="documentoFlotaVencimiento" required></div>
+          <div class="campo campo-multimedia-flota"><label for="documentoFlotaFoto">Fotos / Videos del documento (opcional)</label><input type="file" accept="image/*,video/*" multiple id="documentoFlotaFoto" class="file-visible">
+            <div class="previsualizacion-multimedia-flota" id="documentoFlotaFotoPreview"></div>
+          </div>
+          <div class="campo full"><label for="documentoFlotaObs">Observaciones</label><textarea id="documentoFlotaObs" rows="2"></textarea></div>
+          <div class="campo full grupo-botones">
+            <button type="submit" class="btn-primario">Guardar documento</button>
+            <button type="button" class="btn-secundario" id="btnCancelarDocumentoFlota" style="display:none">Cancelar edición</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="stat-tiles" id="statTilesDocumentosFlota"></div>
+
+      <div class="panel">
+        <h2>Próximos vencimientos</h2>
+        <p class="ayuda-guardar" style="margin:0 0 8px 0;">🔴 Vencido o vence en ≤15 días &nbsp; 🟡 Vence en 16 a 30 días &nbsp; 🟢 Vigente (más de 30 días)</p>
+        <div class="fila-filtros-mapa">
+          <div class="campo"><label for="documentoFlotaFiltroPlaca">Placa</label><select id="documentoFlotaFiltroPlaca"><option value="">Todas las placas</option></select></div>
+          <div class="campo"><label for="documentoFlotaFiltroTipo">Tipo de documento</label><select id="documentoFlotaFiltroTipo"><option value="">Todos los tipos</option></select></div>
+        </div>
+        <div class="tabla-wrap">
+          <table class="tabla-mapa">
+            <thead><tr><th>Placa</th><th>Tipo</th><th>N° Documento</th><th>Vencimiento</th><th>Días restantes</th><th>Estado</th><th>Fotos</th><th>Acciones</th></tr></thead>
+            <tbody id="cuerpoTablaDocumentosFlota"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </section>
+
 
   <!-- ===================== VISTA KARDEX DE EPP ===================== -->
   <section id="vistaEpp" class="vista" style="display:none">
@@ -4742,6 +4843,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const CLAVE_FLOTA_FALLAS = 'flotaFallasDB';
   const CLAVE_FLOTA_REPARACIONES = 'flotaReparacionesDB';
   const CLAVE_FLOTA_COMBUSTIBLE = 'flotaCombustibleDB';
+  const CLAVE_FLOTA_DOCUMENTOS = 'flotaDocumentosDB';
   const CLAVE_EPP = 'kardexEppDB';
   const CLAVE_EPP_STOCK = 'kardexEppStockDB';
   const CLAVE_EPP_MINIMOS = 'kardexEppMinimosDB';
@@ -4771,6 +4873,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   let flotaFallas = [];         // Flota: fallas reportadas de carretas y camiones (con farol de tiempo de reparación)
   let flotaReparaciones = [];   // Flota: reparaciones realizadas (fotos, qué se hizo, y opcionalmente qué falla cerraron)
   let flotaCombustible = [];    // Flota: control de combustible (fotos de salida/retorno/abastecimiento, km, nivel)
+  let flotaDocumentos = [];     // Flota: documentos y vencimientos por placa (SOAT, Revisión Técnica, etc.)
   let entregasEpp = [];    // Kardex de entrega de EPP, ligado a Registro de Personal por nombre
   let ingresosEpp = [];    // Stock de EPP: ingresos/compras registradas por ítem
   let stockMinimoEpp = {}; // Stock de EPP: stock mínimo configurado por ítem (para saber cuándo comprar más)
@@ -10340,7 +10443,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         mapa[key] = {
           ruta: key, vehiculo: r.vehiculo, clientesProgramados: 0, clientesEntregados: 0, clientesPendientes: 0,
           clientesParciales: 0, clientesRechazados: 0, clientesDesplanificados: 0,
-          clientesAlerta: 0, volumenProgramado: 0, volumenEntregado: 0, volumenRechazado: 0
+          clientesAlerta: 0, volumenProgramado: 0, volumenEntregado: 0, volumenRechazado: 0, volumenRechazadoTotal: 0
         };
       }
       const g = mapa[key];
@@ -10354,10 +10457,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       g.volumenProgramado += r.volumenProgramado || 0;
       g.volumenEntregado += r.volumenEntregado || 0;
       g.volumenRechazado += r.volumenRechazado || 0;
+      // Para el MR% Volumen solo cuenta lo totalmente rechazado, no el remanente de las entregas
+      // parciales (ese remanente sí se sigue sumando en "volumenRechazado" para otros reportes,
+      // pero no debe inflar el % de MR Volumen).
+      if (r.estado === 'Rechazado') g.volumenRechazadoTotal += r.volumenRechazado || 0;
     });
     return Object.keys(mapa).map(function (k) {
       const g = mapa[k];
-      g.mrVolumen = g.volumenProgramado > 0 ? (g.volumenRechazado / g.volumenProgramado * 100) : 0;
+      g.mrVolumen = g.volumenProgramado > 0 ? (g.volumenRechazadoTotal / g.volumenProgramado * 100) : 0;
       // El MR% de pedido cuenta tanto a los clientes totalmente rechazados como a los de entrega
       // parcial (así lo calcula también el Excel de Cierre de Operación: la columna "CUENTA
       // RECHAZO" del cierre suma 1 tanto para "Rechazo" como para "Entrega Parcial", y ese es el
@@ -10591,7 +10698,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const desplanificados = filtrado.filter(function (r) { return r.estado === 'Desplanificado'; }).length;
     const volProgramado = filtrado.reduce(function (s, r) { return s + (r.volumenProgramado || 0); }, 0);
     const volEntregado = filtrado.reduce(function (s, r) { return s + (r.volumenEntregado || 0); }, 0);
-    const volRechazado = filtrado.reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0);
+    // "Volumen Rechazando" y el MR% Volumen solo cuentan el hl de los pedidos totalmente rechazados,
+    // no el remanente de las entregas parciales (eso queda fuera de todo lo que sea "volumen
+    // rechazado"; lo que concierne a pedidos —MR% Pedido, conteos de clientes— sí sigue sumando
+    // rechazados + parciales, como ya está confirmado con el Excel de Cierre de Operación).
+    const volRechazadoTotal = filtrado.filter(function (r) { return r.estado === 'Rechazado'; }).reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0);
 
     // ---- Diagnóstico: clientes cuyo volumen entregado quedó por encima del programado ----
     // Esto no siempre es un error (un cliente puede recibir más de lo planificado si hubo un
@@ -10604,7 +10715,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     }).sort(function (a, b) {
       return ((b.volumenEntregado || 0) - (b.volumenProgramado || 0)) - ((a.volumenEntregado || 0) - (a.volumenProgramado || 0));
     });
-    const mrVolumen = volProgramado > 0 ? (volRechazado / volProgramado * 100) : 0;
+    const mrVolumen = volProgramado > 0 ? (volRechazadoTotal / volProgramado * 100) : 0;
     // El MR% de pedido cuenta tanto a los clientes totalmente rechazados como a los de entrega
     // parcial (así lo calcula también el Excel de Cierre de Operación: la columna "CUENTA RECHAZO"
     // del cierre suma 1 tanto para "Rechazo" como para "Entrega Parcial"): total de clientes
@@ -10649,7 +10760,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       </div>
       <div class="stat-tile stat-rojo">
         <div class="stat-label">Volumen Rechazando</div>
-        <div class="stat-valor">${formatearHl(volRechazado)}</div>
+        <div class="stat-valor">${formatearHl(volRechazadoTotal)}</div>
       </div>
     `;
 
@@ -10707,7 +10818,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <td>${formatearPct(g.avancePct)}</td>
             <td>${formatearHl(g.volumenProgramado)}</td>
             <td class="texto-verde">${formatearHl(g.volumenEntregado)}</td>
-            <td class="texto-rojo">${formatearHl(g.volumenRechazado)}</td>
+            <td class="texto-rojo">${formatearHl(g.volumenRechazadoTotal)}</td>
             <td>${celdaPctMeta(g.mrVolumen, METAS_AVANCE_RUTAS.mrVolumen)}</td>
             <td>${celdaPctMeta(g.mrPedido, METAS_AVANCE_RUTAS.mrPedido)}</td>
             <td><button type="button" class="btn-secundario btn-ver-ruta-avance" data-ruta="${escaparHtml(g.ruta)}">Ver detalle</button></td>
@@ -10834,10 +10945,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const volProgramado = enRango.reduce(function (s, r) { return s + (r.volumenProgramado || 0); }, 0);
     const volEntregado = enRango.reduce(function (s, r) { return s + (r.volumenEntregado || 0); }, 0);
     const volNoEntregado = noEntregado.reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0);
+    // Para el MR% Volumen (el indicador principal) solo cuenta lo totalmente rechazado, no el
+    // remanente de las entregas parciales; ese remanente sigue apareciendo en "Cjs No Entregado" y
+    // en las tablas de detalle por Responsable/Motivo y por Tipo de MR (ahí sí se distingue aparte,
+    // en sus propias filas de "Refusal Parcial").
+    const volRechazadoTotal = enRango.filter(function (r) { return r.estado === 'Rechazado'; }).reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0);
     const cjsNoEntregado = noEntregado.reduce(function (s, r) { return s + (r.cajasRechazado || 0); }, 0);
     const pedidosPlaneados = enRango.length;
     const pedidosNoEntregados = noEntregado.length;
-    const mrVolumen = volProgramado > 0 ? (volNoEntregado / volProgramado * 100) : 0;
+    const mrVolumen = volProgramado > 0 ? (volRechazadoTotal / volProgramado * 100) : 0;
     const mrPedidos = pedidosPlaneados > 0 ? (pedidosNoEntregados / pedidosPlaneados * 100) : 0;
 
     // ---- Por responsable + motivo (tabla de detalle + gráficas de barras + donas) ----
@@ -10889,7 +11005,10 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       const d = porDiaMapa[k];
       const volNoEntregadoDia = d.volRefusalTotal + d.volRefusalParcial;
       return Object.assign({}, d, {
-        mrVolumenDia: d.volProgramado > 0 ? (volNoEntregadoDia / d.volProgramado * 100) : 0,
+        volNoEntregadoDia: volNoEntregadoDia,
+        // El MR% Volumen del día solo cuenta el rechazo total, no el remanente de las parciales
+        // (que igual se sigue mostrando aparte en el gráfico de "Refusal Total vs Refusal Parcial").
+        mrVolumenDia: d.volProgramado > 0 ? (d.volRefusalTotal / d.volProgramado * 100) : 0,
         mrPedidoDia: d.pedidosPlaneados > 0 ? (d.pedidosNoEntregados / d.pedidosPlaneados * 100) : 0
       });
     });
@@ -10898,7 +11017,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const porRutaMapa = {};
     enRango.forEach(function (r) {
       const clave = r.ruta || '(Sin ruta)';
-      if (!porRutaMapa[clave]) porRutaMapa[clave] = { ruta: clave, volProgramado: 0, volNoEntregado: 0, pedidosPlaneados: 0, pedidosNoEntregados: 0 };
+      if (!porRutaMapa[clave]) porRutaMapa[clave] = { ruta: clave, volProgramado: 0, volNoEntregado: 0, volRechazadoTotal: 0, pedidosPlaneados: 0, pedidosNoEntregados: 0 };
       const g = porRutaMapa[clave];
       g.volProgramado += (r.volumenProgramado || 0);
       g.pedidosPlaneados += 1;
@@ -10906,11 +11025,13 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         g.volNoEntregado += (r.volumenRechazado || 0);
         g.pedidosNoEntregados += 1;
       }
+      // Para el MR% Volumen por ruta, solo lo totalmente rechazado (no el remanente de parciales).
+      if (r.estado === 'Rechazado') g.volRechazadoTotal += (r.volumenRechazado || 0);
     });
     const porRuta = Object.keys(porRutaMapa).map(function (k) {
       const g = porRutaMapa[k];
       return Object.assign({}, g, {
-        mrVolumenRuta: g.volProgramado > 0 ? (g.volNoEntregado / g.volProgramado * 100) : 0,
+        mrVolumenRuta: g.volProgramado > 0 ? (g.volRechazadoTotal / g.volProgramado * 100) : 0,
         mrPedidoRuta: g.pedidosPlaneados > 0 ? (g.pedidosNoEntregados / g.pedidosPlaneados * 100) : 0
       });
     }).sort(function (a, b) { return b.mrVolumenRuta - a.mrVolumenRuta; });
@@ -12775,6 +12896,92 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     lector.readAsDataURL(archivo);
   }
 
+  /* ---- Campos multimedia (varias fotos y/o videos por campo) ----
+     Cada campo de "subir foto" de Flota ahora acepta varias imágenes y videos a la vez. Las fotos
+     se comprimen igual que antes; los videos no se pueden comprimir en el navegador (no hay backend
+     ni librería de video aquí), así que se guardan tal cual, con un límite de tamaño para no llenar
+     el almacenamiento del navegador de un solo video pesado. Los archivos elegidos quedan en memoria
+     (mediaSeleccionadaFlota) hasta que se guarda el formulario. */
+  const LIMITE_VIDEO_FLOTA = 15 * 1024 * 1024; // 15 MB por video
+  const mediaSeleccionadaFlota = {}; // idInput -> [{ tipo: 'imagen'|'video', dato: base64, nombre }]
+
+  function inicializarCampoMultimediaFlota(idInput, idPreview) {
+    mediaSeleccionadaFlota[idInput] = [];
+    document.getElementById(idInput).addEventListener('change', function (e) {
+      Array.from(e.target.files || []).forEach(function (archivo) {
+        if (archivo.type.indexOf('video') === 0) {
+          if (archivo.size > LIMITE_VIDEO_FLOTA) {
+            alert('El video "' + archivo.name + '" pesa más de 15 MB. Recorta el clip o bájale la calidad antes de subirlo (los videos ocupan mucho espacio en el navegador).');
+            return;
+          }
+          const lector = new FileReader();
+          lector.onload = function (ev) {
+            mediaSeleccionadaFlota[idInput].push({ tipo: 'video', dato: ev.target.result, nombre: archivo.name });
+            renderPreviewMultimediaFlota(idInput, idPreview);
+          };
+          lector.readAsDataURL(archivo);
+        } else if (archivo.type.indexOf('image') === 0) {
+          comprimirImagenABase64(archivo, 1000, 0.6, function (base64) {
+            if (base64) {
+              mediaSeleccionadaFlota[idInput].push({ tipo: 'imagen', dato: base64, nombre: archivo.name });
+              renderPreviewMultimediaFlota(idInput, idPreview);
+            }
+          });
+        }
+      });
+      e.target.value = ''; // permite volver a elegir/agregar el mismo archivo si se quitó antes
+    });
+  }
+
+  function renderPreviewMultimediaFlota(idInput, idPreview) {
+    const cont = document.getElementById(idPreview);
+    if (!cont) return;
+    const lista = mediaSeleccionadaFlota[idInput] || [];
+    cont.innerHTML = lista.map(function (m, i) {
+      const miniatura = m.tipo === 'video'
+        ? '<video src="' + m.dato + '" class="miniatura-foto-flota" muted></video><span class="etiqueta-video-flota">VIDEO</span>'
+        : '<img src="' + m.dato + '" class="miniatura-foto-flota">';
+      return '<span class="item-previsualizacion-multimedia">' + miniatura +
+        '<button type="button" class="btn-quitar-media-flota" data-input="' + idInput + '" data-preview="' + idPreview + '" data-idx="' + i + '" title="Quitar">×</button></span>';
+    }).join('');
+  }
+
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.btn-quitar-media-flota');
+    if (!btn) return;
+    const idInput = btn.getAttribute('data-input');
+    const idx = parseInt(btn.getAttribute('data-idx'), 10);
+    mediaSeleccionadaFlota[idInput].splice(idx, 1);
+    renderPreviewMultimediaFlota(idInput, btn.getAttribute('data-preview'));
+  });
+
+  function obtenerMediaSeleccionadaFlota(idInput) { return (mediaSeleccionadaFlota[idInput] || []).slice(); }
+  function limpiarMediaSeleccionadaFlota(idInput, idPreview) {
+    mediaSeleccionadaFlota[idInput] = [];
+    const cont = document.getElementById(idPreview);
+    if (cont) cont.innerHTML = '';
+  }
+  // Para cuando se edita un registro existente: precarga en la previsualización las fotos/videos
+  // que ya tenía guardados, para poder quitarlos o agregar más antes de guardar de nuevo.
+  function precargarMediaFlota(idInput, idPreview, mediaExistente) {
+    mediaSeleccionadaFlota[idInput] = (mediaExistente || []).slice();
+    renderPreviewMultimediaFlota(idInput, idPreview);
+  }
+  // Arma la tira de miniaturas (clicables, abren en pestaña nueva) para mostrar en una tabla/tarjeta
+  // ya guardada. Acepta tanto el arreglo nuevo (fotos: [{tipo,dato}]) como, por compatibilidad, un
+  // string suelto de una sola foto (dato de registros guardados antes de este cambio).
+  function tiraMediaGuardadaFlota(media) {
+    let lista = [];
+    if (Array.isArray(media)) lista = media;
+    else if (typeof media === 'string' && media) lista = [{ tipo: 'imagen', dato: media }];
+    if (lista.length === 0) return '—';
+    return lista.map(function (m) {
+      return m.tipo === 'video'
+        ? '<video src="' + m.dato + '" class="miniatura-foto-flota" muted onclick="window.open(this.src)"></video>'
+        : '<img src="' + m.dato + '" class="miniatura-foto-flota" onclick="window.open(this.src)">';
+    }).join('');
+  }
+
   // El farol de tiempo de reparación: verde si se reportó y reparó rápido, amarillo si va en
   // curso dentro del plazo aceptable, rojo si ya se demoró, gris si ya quedó reparada.
   function semaforoReparacionFlota(falla) {
@@ -12810,7 +13017,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     catch (e) { flotaControlDiario = []; mostrarAvisoStorage(); }
   }
   function guardarFlotaControlDiario() {
-    try { localStorage.setItem(CLAVE_FLOTA_CONTROL_DIARIO, JSON.stringify(flotaControlDiario)); guardarEnNube('flotaControlDiario', flotaControlDiario); }
+    try { localStorage.setItem(CLAVE_FLOTA_CONTROL_DIARIO, JSON.stringify(flotaControlDiario)); guardarEnNubeFragmentada('flotaControlDiario', flotaControlDiario); }
     catch (e) { mostrarAvisoStorage(); }
   }
   function cargarFlotaFallas() {
@@ -12818,7 +13025,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     catch (e) { flotaFallas = []; mostrarAvisoStorage(); }
   }
   function guardarFlotaFallas() {
-    try { localStorage.setItem(CLAVE_FLOTA_FALLAS, JSON.stringify(flotaFallas)); guardarEnNube('flotaFallas', flotaFallas); }
+    try { localStorage.setItem(CLAVE_FLOTA_FALLAS, JSON.stringify(flotaFallas)); guardarEnNubeFragmentada('flotaFallas', flotaFallas); }
     catch (e) { mostrarAvisoStorage(); }
   }
   function cargarFlotaReparaciones() {
@@ -12826,7 +13033,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     catch (e) { flotaReparaciones = []; mostrarAvisoStorage(); }
   }
   function guardarFlotaReparaciones() {
-    try { localStorage.setItem(CLAVE_FLOTA_REPARACIONES, JSON.stringify(flotaReparaciones)); guardarEnNube('flotaReparaciones', flotaReparaciones); }
+    try { localStorage.setItem(CLAVE_FLOTA_REPARACIONES, JSON.stringify(flotaReparaciones)); guardarEnNubeFragmentada('flotaReparaciones', flotaReparaciones); }
     catch (e) { mostrarAvisoStorage(); }
   }
   function cargarFlotaCombustible() {
@@ -12834,7 +13041,15 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     catch (e) { flotaCombustible = []; mostrarAvisoStorage(); }
   }
   function guardarFlotaCombustible() {
-    try { localStorage.setItem(CLAVE_FLOTA_COMBUSTIBLE, JSON.stringify(flotaCombustible)); guardarEnNube('flotaCombustible', flotaCombustible); }
+    try { localStorage.setItem(CLAVE_FLOTA_COMBUSTIBLE, JSON.stringify(flotaCombustible)); guardarEnNubeFragmentada('flotaCombustible', flotaCombustible); }
+    catch (e) { mostrarAvisoStorage(); }
+  }
+  function cargarFlotaDocumentos() {
+    try { const g = localStorage.getItem(CLAVE_FLOTA_DOCUMENTOS); flotaDocumentos = g ? JSON.parse(g) : []; }
+    catch (e) { flotaDocumentos = []; mostrarAvisoStorage(); }
+  }
+  function guardarFlotaDocumentos() {
+    try { localStorage.setItem(CLAVE_FLOTA_DOCUMENTOS, JSON.stringify(flotaDocumentos)); guardarEnNubeFragmentada('flotaDocumentos', flotaDocumentos); }
     catch (e) { mostrarAvisoStorage(); }
   }
 
@@ -12974,7 +13189,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (lista.length === 0) { cuerpo.innerHTML = '<tr><td colspan="9" class="vacio">No hay fallas reportadas.</td></tr>'; return; }
     cuerpo.innerHTML = lista.map(function (f) {
       const sem = semaforoReparacionFlota(f);
-      const foto = f.foto ? '<img src="' + f.foto + '" class="miniatura-foto-flota" onclick="window.open(this.src)">' : '—';
+      const foto = tiraMediaGuardadaFlota(f.fotos !== undefined ? f.fotos : f.foto);
       const idUnidad = tipoUnidad === 'carreta' ? f.refCarreta : f.refPlaca;
       return `
         <tr>
@@ -12985,7 +13200,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
           <td>${f.fechaReparacion ? formatearFecha(f.fechaReparacion) : '—'}</td>
           <td>${diasEntreFechasFlota(f.fechaReporte, f.fechaReparacion || hoyIsoFlota())}</td>
           <td><span class="semaforo-flota ${sem.clase}">${sem.texto}</span></td>
-          <td>${foto}</td>
+          <td class="tira-fotos-flota">${foto}</td>
           <td>
             ${f.fechaReparacion ? '' : '<button type="button" class="btn-secundario btn-marcar-reparada-flota" data-id="' + f.id + '">Marcar reparada</button>'}
             <button type="button" class="btn-secundario btn-eliminar-falla-flota" data-id="${f.id}">Eliminar</button>
@@ -13040,24 +13255,20 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const form = this;
     const numero = document.getElementById('fallaCarretaCarreta').value;
     if (!numero) { alert('Selecciona una carreta.'); return; }
-    const archivo = document.getElementById('fallaCarretaFoto').files[0];
-    function terminar(fotoBase64) {
-      flotaFallas.push({
-        id: nuevoIdFlota(), unidad: 'carreta', refCarreta: numero, refPlaca: '',
-        tipo: document.getElementById('fallaCarretaTipo').value,
-        descripcion: document.getElementById('fallaCarretaDescripcion').value.trim(),
-        fechaReporte: document.getElementById('fallaCarretaFecha').value || hoyIsoFlota(),
-        fechaReparacion: '', foto: fotoBase64 || ''
-      });
-      guardarFlotaFallas();
-      form.reset();
-      document.getElementById('fallaCarretaFecha').value = hoyIsoFlota();
-      renderTablaFallas('carreta');
-      renderTablaCarretas(document.getElementById('buscadorCarretas').value);
-      poblarSelectsFallasAbiertasFlota();
-    }
-    if (archivo) comprimirImagenABase64(archivo, 900, 0.6, terminar);
-    else terminar(null);
+    flotaFallas.push({
+      id: nuevoIdFlota(), unidad: 'carreta', refCarreta: numero, refPlaca: '',
+      tipo: document.getElementById('fallaCarretaTipo').value,
+      descripcion: document.getElementById('fallaCarretaDescripcion').value.trim(),
+      fechaReporte: document.getElementById('fallaCarretaFecha').value || hoyIsoFlota(),
+      fechaReparacion: '', fotos: obtenerMediaSeleccionadaFlota('fallaCarretaFoto')
+    });
+    guardarFlotaFallas();
+    form.reset();
+    limpiarMediaSeleccionadaFlota('fallaCarretaFoto', 'fallaCarretaFotoPreview');
+    document.getElementById('fallaCarretaFecha').value = hoyIsoFlota();
+    renderTablaFallas('carreta');
+    renderTablaCarretas(document.getElementById('buscadorCarretas').value);
+    poblarSelectsFallasAbiertasFlota();
   });
 
   document.getElementById('formFallaCamion').addEventListener('submit', function (e) {
@@ -13065,23 +13276,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const form = this;
     const placa = document.getElementById('fallaCamionPlaca').value.trim();
     if (!placa) return;
-    const archivo = document.getElementById('fallaCamionFoto').files[0];
-    function terminar(fotoBase64) {
-      flotaFallas.push({
-        id: nuevoIdFlota(), unidad: 'camion', refCarreta: '', refPlaca: placa,
-        tipo: document.getElementById('fallaCamionTipo').value,
-        descripcion: document.getElementById('fallaCamionDescripcion').value.trim(),
-        fechaReporte: document.getElementById('fallaCamionFecha').value || hoyIsoFlota(),
-        fechaReparacion: '', foto: fotoBase64 || ''
-      });
-      guardarFlotaFallas();
-      form.reset();
-      document.getElementById('fallaCamionFecha').value = hoyIsoFlota();
-      renderTablaFallas('camion');
-      poblarSelectsFallasAbiertasFlota();
-    }
-    if (archivo) comprimirImagenABase64(archivo, 900, 0.6, terminar);
-    else terminar(null);
+    flotaFallas.push({
+      id: nuevoIdFlota(), unidad: 'camion', refCarreta: '', refPlaca: placa,
+      tipo: document.getElementById('fallaCamionTipo').value,
+      descripcion: document.getElementById('fallaCamionDescripcion').value.trim(),
+      fechaReporte: document.getElementById('fallaCamionFecha').value || hoyIsoFlota(),
+      fechaReparacion: '', fotos: obtenerMediaSeleccionadaFlota('fallaCamionFoto')
+    });
+    guardarFlotaFallas();
+    form.reset();
+    limpiarMediaSeleccionadaFlota('fallaCamionFoto', 'fallaCamionFotoPreview');
+    document.getElementById('fallaCamionFecha').value = hoyIsoFlota();
+    renderTablaFallas('camion');
+    poblarSelectsFallasAbiertasFlota();
   });
 
   /* ---- Reparaciones (vincula opcionalmente una falla abierta y la cierra) ---- */
@@ -13091,14 +13298,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (lista.length === 0) { cuerpo.innerHTML = '<tr><td colspan="6" class="vacio">No hay reparaciones registradas.</td></tr>'; return; }
     cuerpo.innerHTML = lista.map(function (r) {
       const unidad = r.refCarreta ? ('Carreta ' + r.refCarreta) : ('Placa ' + r.refPlaca);
-      const foto = r.foto ? '<img src="' + r.foto + '" class="miniatura-foto-flota" onclick="window.open(this.src)">' : '—';
+      const foto = tiraMediaGuardadaFlota(r.fotos !== undefined ? r.fotos : r.foto);
       return `
         <tr>
           <td>${escaparHtml(unidad)}</td>
           <td>${formatearFecha(r.fecha)}</td>
           <td>${escaparHtml(r.descripcion)}</td>
           <td>${r.costo ? 'S/ ' + r.costo.toFixed(2) : '—'}</td>
-          <td>${foto}</td>
+          <td class="tira-fotos-flota">${foto}</td>
           <td><button type="button" class="btn-secundario btn-eliminar-reparacion-flota" data-id="${r.id}">Eliminar</button></td>
         </tr>
       `;
@@ -13119,31 +13326,27 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const carreta = document.getElementById('reparacionFlotaCarreta').value;
     const placa = document.getElementById('reparacionFlotaPlaca').value.trim();
     if (!carreta && !placa) { alert('Indica el N° de carreta o la placa del camión.'); return; }
-    const archivo = document.getElementById('reparacionFlotaFoto').files[0];
     const fecha = document.getElementById('reparacionFlotaFecha').value || hoyIsoFlota();
     const vincularId = document.getElementById('reparacionFlotaVincular').value;
-    function terminar(fotoBase64) {
-      flotaReparaciones.push({
-        id: nuevoIdFlota(), refCarreta: carreta, refPlaca: placa, fecha: fecha,
-        descripcion: document.getElementById('reparacionFlotaDescripcion').value.trim(),
-        costo: parseFloat(document.getElementById('reparacionFlotaCosto').value) || 0,
-        foto: fotoBase64 || ''
-      });
-      guardarFlotaReparaciones();
-      if (vincularId) {
-        const f = flotaFallas.find(function (x) { return x.id === vincularId; });
-        if (f) { f.fechaReparacion = fecha; guardarFlotaFallas(); }
-      }
-      form.reset();
-      document.getElementById('reparacionFlotaFecha').value = hoyIsoFlota();
-      renderTablaReparacionesFlota();
-      renderTablaFallas('carreta');
-      renderTablaFallas('camion');
-      renderTablaCarretas(document.getElementById('buscadorCarretas').value);
-      poblarSelectsFallasAbiertasFlota();
+    flotaReparaciones.push({
+      id: nuevoIdFlota(), refCarreta: carreta, refPlaca: placa, fecha: fecha,
+      descripcion: document.getElementById('reparacionFlotaDescripcion').value.trim(),
+      costo: parseFloat(document.getElementById('reparacionFlotaCosto').value) || 0,
+      fotos: obtenerMediaSeleccionadaFlota('reparacionFlotaFoto')
+    });
+    guardarFlotaReparaciones();
+    if (vincularId) {
+      const f = flotaFallas.find(function (x) { return x.id === vincularId; });
+      if (f) { f.fechaReparacion = fecha; guardarFlotaFallas(); }
     }
-    if (archivo) comprimirImagenABase64(archivo, 900, 0.6, terminar);
-    else terminar(null);
+    form.reset();
+    limpiarMediaSeleccionadaFlota('reparacionFlotaFoto', 'reparacionFlotaFotoPreview');
+    document.getElementById('reparacionFlotaFecha').value = hoyIsoFlota();
+    renderTablaReparacionesFlota();
+    renderTablaFallas('carreta');
+    renderTablaFallas('camion');
+    renderTablaCarretas(document.getElementById('buscadorCarretas').value);
+    poblarSelectsFallasAbiertasFlota();
   });
 
   /* ---- Inventario de camiones (checklist) ---- */
@@ -13265,10 +13468,16 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     function bloqueMomento(titulo, datos) {
       if (!datos) return '<div class="bloque-momento-control-diario"><h4>' + titulo + '</h4><p class="ayuda-guardar" style="margin:0;">Sin registrar</p></div>';
       const badgeClase = datos.estado === 'Bien' ? 'semaforo-verde' : 'semaforo-rojo';
+      const media = datos.fotos !== undefined ? datos.fotos : (datos.foto ? [{ tipo: 'imagen', dato: datos.foto }] : []);
+      const galeria = media.map(function (m) {
+        return m.tipo === 'video'
+          ? '<video src="' + m.dato + '" style="width:100%;height:110px;object-fit:cover;border-radius:6px;cursor:pointer;" muted onclick="window.open(this.src)"></video>'
+          : '<img src="' + m.dato + '" style="width:100%;height:110px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="window.open(this.src)">';
+      }).join('');
       return `
         <div class="bloque-momento-control-diario">
           <h4>${titulo}</h4>
-          <img src="${datos.foto}" class="miniatura-foto-flota" style="width:100%;height:120px;" onclick="window.open(this.src)">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(80px, 1fr));gap:4px;">${galeria || '—'}</div>
           <p style="margin:6px 0 2px;"><span class="semaforo-flota ${badgeClase}">${escaparHtml(datos.estado)}</span></p>
           <p style="margin:0;font-size:12.5px;color:var(--gris-texto);">${escaparHtml(datos.comentario) || 'Sin comentarios'}</p>
         </div>
@@ -13296,24 +13505,23 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const placa = document.getElementById('controlDiarioPlaca').value.trim();
     const fecha = document.getElementById('controlDiarioFecha').value || hoyIsoFlota();
     const momento = document.getElementById('controlDiarioMomento').value;
-    const archivo = document.getElementById('controlDiarioFoto').files[0];
-    if (!placa || !archivo) { alert('La placa y la foto son obligatorias.'); return; }
-    comprimirImagenABase64(archivo, 900, 0.55, function (fotoBase64) {
-      let registro = flotaControlDiario.find(function (r) { return r.placa === placa && r.fecha === fecha; });
-      if (!registro) {
-        registro = { id: nuevoIdFlota(), placa: placa, fecha: fecha, salida: null, retorno: null };
-        flotaControlDiario.push(registro);
-      }
-      registro[momento] = {
-        foto: fotoBase64,
-        estado: document.getElementById('controlDiarioEstado').value,
-        comentario: document.getElementById('controlDiarioComentario').value.trim()
-      };
-      guardarFlotaControlDiario();
-      form.reset();
-      document.getElementById('controlDiarioFecha').value = hoyIsoFlota();
-      renderListaControlDiario(document.getElementById('buscadorControlDiario').value);
-    });
+    const media = obtenerMediaSeleccionadaFlota('controlDiarioFoto');
+    if (!placa || media.length === 0) { alert('La placa y al menos una foto o video son obligatorios.'); return; }
+    let registro = flotaControlDiario.find(function (r) { return r.placa === placa && r.fecha === fecha; });
+    if (!registro) {
+      registro = { id: nuevoIdFlota(), placa: placa, fecha: fecha, salida: null, retorno: null };
+      flotaControlDiario.push(registro);
+    }
+    registro[momento] = {
+      fotos: media,
+      estado: document.getElementById('controlDiarioEstado').value,
+      comentario: document.getElementById('controlDiarioComentario').value.trim()
+    };
+    guardarFlotaControlDiario();
+    form.reset();
+    limpiarMediaSeleccionadaFlota('controlDiarioFoto', 'controlDiarioFotoPreview');
+    document.getElementById('controlDiarioFecha').value = hoyIsoFlota();
+    renderListaControlDiario(document.getElementById('buscadorControlDiario').value);
   });
 
   document.getElementById('listaControlDiario').addEventListener('click', function (e) {
@@ -13337,8 +13545,11 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     if (lista.length === 0) { cuerpo.innerHTML = '<tr><td colspan="8" class="vacio">No hay registros de combustible.</td></tr>'; return; }
     function nivelTexto(v) { return v === '' || v == null ? '—' : v + '%'; }
     cuerpo.innerHTML = lista.map(function (r) {
-      const fotos = ['fotoSalida', 'fotoRetorno', 'fotoAbastecimiento'].filter(function (k) { return r[k]; })
-        .map(function (k) { return '<img src="' + r[k] + '" class="miniatura-foto-flota" onclick="window.open(this.src)">'; }).join('');
+      const fotos = ['fotosSalida', 'fotosRetorno', 'fotosAbastecimiento'].map(function (k) {
+        const antiguo = k.replace('fotos', 'foto'); // compatibilidad con registros guardados antes de este cambio (un solo string)
+        const media = r[k] !== undefined ? r[k] : (r[antiguo] ? [{ tipo: 'imagen', dato: r[antiguo] }] : []);
+        return tiraMediaGuardadaFlota(media) === '—' ? '' : tiraMediaGuardadaFlota(media);
+      }).join('');
       return `
         <tr>
           <td>${escaparHtml(r.placa)}</td>
@@ -13437,48 +13648,41 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const id = document.getElementById('combustibleId').value;
     const placa = document.getElementById('combustiblePlaca').value.trim();
     if (!placa) return;
-    const archivoSalida = document.getElementById('combustibleFotoSalida').files[0];
-    const archivoRetorno = document.getElementById('combustibleFotoRetorno').files[0];
-    const archivoAbastecimiento = document.getElementById('combustibleFotoAbastecimiento').files[0];
-    function conFoto(archivo, cb) {
-      if (archivo) comprimirImagenABase64(archivo, 900, 0.55, cb);
-      else cb(null);
+    const existente = id ? flotaCombustible.find(function (x) { return x.id === id; }) : null;
+    const mediaSalida = obtenerMediaSeleccionadaFlota('combustibleFotoSalida');
+    const mediaRetorno = obtenerMediaSeleccionadaFlota('combustibleFotoRetorno');
+    const mediaAbastecimiento = obtenerMediaSeleccionadaFlota('combustibleFotoAbastecimiento');
+    const datos = {
+      id: id || nuevoIdFlota(),
+      placa: placa,
+      fecha: document.getElementById('combustibleFecha').value || hoyIsoFlota(),
+      km: parseFloat(document.getElementById('combustibleKm').value) || 0,
+      nivelSalida: document.getElementById('combustibleNivelSalida').value,
+      fotosSalida: mediaSalida.length > 0 ? mediaSalida : (existente ? (existente.fotosSalida || []) : []),
+      nivelRetorno: document.getElementById('combustibleNivelRetorno').value,
+      fotosRetorno: mediaRetorno.length > 0 ? mediaRetorno : (existente ? (existente.fotosRetorno || []) : []),
+      galones: parseFloat(document.getElementById('combustibleGalones').value) || 0,
+      monto: parseFloat(document.getElementById('combustibleMonto').value) || 0,
+      fotosAbastecimiento: mediaAbastecimiento.length > 0 ? mediaAbastecimiento : (existente ? (existente.fotosAbastecimiento || []) : [])
+    };
+    if (id) {
+      const idx = flotaCombustible.findIndex(function (x) { return x.id === id; });
+      if (idx !== -1) flotaCombustible[idx] = datos;
+    } else {
+      flotaCombustible.push(datos);
     }
-    conFoto(archivoSalida, function (fotoSalida) {
-      conFoto(archivoRetorno, function (fotoRetorno) {
-        conFoto(archivoAbastecimiento, function (fotoAbastecimiento) {
-          const existente = id ? flotaCombustible.find(function (x) { return x.id === id; }) : null;
-          const datos = {
-            id: id || nuevoIdFlota(),
-            placa: placa,
-            fecha: document.getElementById('combustibleFecha').value || hoyIsoFlota(),
-            km: parseFloat(document.getElementById('combustibleKm').value) || 0,
-            nivelSalida: document.getElementById('combustibleNivelSalida').value,
-            fotoSalida: fotoSalida || (existente ? existente.fotoSalida : ''),
-            nivelRetorno: document.getElementById('combustibleNivelRetorno').value,
-            fotoRetorno: fotoRetorno || (existente ? existente.fotoRetorno : ''),
-            galones: parseFloat(document.getElementById('combustibleGalones').value) || 0,
-            monto: parseFloat(document.getElementById('combustibleMonto').value) || 0,
-            fotoAbastecimiento: fotoAbastecimiento || (existente ? existente.fotoAbastecimiento : '')
-          };
-          if (id) {
-            const idx = flotaCombustible.findIndex(function (x) { return x.id === id; });
-            if (idx !== -1) flotaCombustible[idx] = datos;
-          } else {
-            flotaCombustible.push(datos);
-          }
-          guardarFlotaCombustible();
-          form.reset();
-          document.getElementById('combustibleId').value = '';
-          document.getElementById('combustibleFecha').value = hoyIsoFlota();
-          document.getElementById('tituloFormCombustible').textContent = 'Registrar combustible del día';
-          document.getElementById('btnCancelarCombustible').style.display = 'none';
-          renderTablaCombustible();
-          poblarSelectDashboardCombustible();
-          renderDashboardCombustible();
-        });
-      });
-    });
+    guardarFlotaCombustible();
+    form.reset();
+    limpiarMediaSeleccionadaFlota('combustibleFotoSalida', 'combustibleFotoSalidaPreview');
+    limpiarMediaSeleccionadaFlota('combustibleFotoRetorno', 'combustibleFotoRetornoPreview');
+    limpiarMediaSeleccionadaFlota('combustibleFotoAbastecimiento', 'combustibleFotoAbastecimientoPreview');
+    document.getElementById('combustibleId').value = '';
+    document.getElementById('combustibleFecha').value = hoyIsoFlota();
+    document.getElementById('tituloFormCombustible').textContent = 'Registrar combustible del día';
+    document.getElementById('btnCancelarCombustible').style.display = 'none';
+    renderTablaCombustible();
+    poblarSelectDashboardCombustible();
+    renderDashboardCombustible();
   });
 
   document.getElementById('cuerpoTablaCombustible').addEventListener('click', function (e) {
@@ -13494,6 +13698,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       document.getElementById('combustibleNivelRetorno').value = r.nivelRetorno || '';
       document.getElementById('combustibleGalones').value = r.galones || '';
       document.getElementById('combustibleMonto').value = r.monto || '';
+      precargarMediaFlota('combustibleFotoSalida', 'combustibleFotoSalidaPreview', r.fotosSalida);
+      precargarMediaFlota('combustibleFotoRetorno', 'combustibleFotoRetornoPreview', r.fotosRetorno);
+      precargarMediaFlota('combustibleFotoAbastecimiento', 'combustibleFotoAbastecimientoPreview', r.fotosAbastecimiento);
       document.getElementById('tituloFormCombustible').textContent = 'Editar combustible del día';
       document.getElementById('btnCancelarCombustible').style.display = '';
       window.scrollTo(0, 0);
@@ -13513,8 +13720,152 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   document.getElementById('btnCancelarCombustible').addEventListener('click', function () {
     document.getElementById('formCombustible').reset();
     document.getElementById('combustibleId').value = '';
+    limpiarMediaSeleccionadaFlota('combustibleFotoSalida', 'combustibleFotoSalidaPreview');
+    limpiarMediaSeleccionadaFlota('combustibleFotoRetorno', 'combustibleFotoRetornoPreview');
+    limpiarMediaSeleccionadaFlota('combustibleFotoAbastecimiento', 'combustibleFotoAbastecimientoPreview');
     document.getElementById('tituloFormCombustible').textContent = 'Registrar combustible del día';
     this.style.display = 'none';
+  });
+
+  /* ---- Documentos y Vencimientos (SOAT, Revisión Técnica, etc.) ---- */
+  const METAS_VENCIMIENTO_FLOTA = { rojoMax: 15, amarilloMax: 30 }; // días restantes hasta el vencimiento
+
+  // El farol de vencimiento: rojo si ya venció o vence pronto, amarillo si va acercándose, verde si
+  // todavía falta bastante.
+  function semaforoVencimientoFlota(fechaVencimiento) {
+    const dias = diasEntreFechasFlota(hoyIsoFlota(), fechaVencimiento);
+    if (dias < 0) return { clase: 'semaforo-rojo', texto: 'Vencido hace ' + Math.abs(dias) + ' día' + (Math.abs(dias) === 1 ? '' : 's') };
+    if (dias <= METAS_VENCIMIENTO_FLOTA.rojoMax) return { clase: 'semaforo-rojo', texto: 'Vence en ' + dias + ' día' + (dias === 1 ? '' : 's') };
+    if (dias <= METAS_VENCIMIENTO_FLOTA.amarilloMax) return { clase: 'semaforo-amarillo', texto: 'Vence en ' + dias + ' días' };
+    return { clase: 'semaforo-verde', texto: 'Vence en ' + dias + ' días' };
+  }
+
+  function poblarFiltrosDocumentosFlota() {
+    const placas = Array.from(new Set(flotaDocumentos.map(function (d) { return d.placa; }).filter(Boolean))).sort();
+    const tipos = Array.from(new Set(flotaDocumentos.map(function (d) { return d.tipo; }).filter(Boolean))).sort();
+    function llenar(id, opciones, etiqueta) {
+      const sel = document.getElementById(id);
+      const valorActual = sel.value;
+      sel.innerHTML = '<option value="">' + etiqueta + '</option>' + opciones.map(function (o) { return '<option value="' + escaparHtml(o) + '">' + escaparHtml(o) + '</option>'; }).join('');
+      if (opciones.indexOf(valorActual) !== -1) sel.value = valorActual;
+    }
+    llenar('documentoFlotaFiltroPlaca', placas, 'Todas las placas');
+    llenar('documentoFlotaFiltroTipo', tipos, 'Todos los tipos');
+  }
+
+  function renderTablaDocumentosFlota() {
+    const filtroPlaca = document.getElementById('documentoFlotaFiltroPlaca').value;
+    const filtroTipo = document.getElementById('documentoFlotaFiltroTipo').value;
+    const cuerpo = document.getElementById('cuerpoTablaDocumentosFlota');
+    let lista = flotaDocumentos.slice();
+    if (filtroPlaca) lista = lista.filter(function (d) { return d.placa === filtroPlaca; });
+    if (filtroTipo) lista = lista.filter(function (d) { return d.tipo === filtroTipo; });
+    lista.sort(function (a, b) { return (a.fechaVencimiento || '').localeCompare(b.fechaVencimiento || ''); });
+
+    document.getElementById('statTilesDocumentosFlota').innerHTML = (function () {
+      const vencidos = flotaDocumentos.filter(function (d) { return diasEntreFechasFlota(hoyIsoFlota(), d.fechaVencimiento) < 0; }).length;
+      const porVencer = flotaDocumentos.filter(function (d) { const dd = diasEntreFechasFlota(hoyIsoFlota(), d.fechaVencimiento); return dd >= 0 && dd <= METAS_VENCIMIENTO_FLOTA.amarilloMax; }).length;
+      const vigentes = flotaDocumentos.length - vencidos - porVencer;
+      return `
+        <div class="stat-tile stat-rojo"><div class="stat-label">Vencidos</div><div class="stat-valor">${vencidos}</div></div>
+        <div class="stat-tile stat-naranja"><div class="stat-label">Por vencer (≤30 días)</div><div class="stat-valor">${porVencer}</div></div>
+        <div class="stat-tile stat-verde"><div class="stat-label">Vigentes</div><div class="stat-valor">${vigentes}</div></div>
+        <div class="stat-tile stat-hero"><div class="stat-label">Total de documentos</div><div class="stat-valor">${flotaDocumentos.length}</div></div>
+      `;
+    })();
+
+    if (lista.length === 0) { cuerpo.innerHTML = '<tr><td colspan="8" class="vacio">No hay documentos registrados.</td></tr>'; return; }
+    cuerpo.innerHTML = lista.map(function (d) {
+      const sem = semaforoVencimientoFlota(d.fechaVencimiento);
+      return `
+        <tr>
+          <td>${escaparHtml(d.placa)}</td>
+          <td>${escaparHtml(d.tipo)}</td>
+          <td>${escaparHtml(d.numero) || '—'}</td>
+          <td>${formatearFecha(d.fechaVencimiento)}</td>
+          <td>${diasEntreFechasFlota(hoyIsoFlota(), d.fechaVencimiento)}</td>
+          <td><span class="semaforo-flota ${sem.clase}">${sem.texto}</span></td>
+          <td class="tira-fotos-flota">${tiraMediaGuardadaFlota(d.fotos)}</td>
+          <td>
+            <button type="button" class="btn-secundario btn-editar-documento-flota" data-id="${d.id}">Editar</button>
+            <button type="button" class="btn-secundario btn-eliminar-documento-flota" data-id="${d.id}">Eliminar</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  document.getElementById('formDocumentoFlota').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const form = this;
+    const id = document.getElementById('documentoFlotaId').value;
+    const existente = id ? flotaDocumentos.find(function (x) { return x.id === id; }) : null;
+    const media = obtenerMediaSeleccionadaFlota('documentoFlotaFoto');
+    const datos = {
+      id: id || nuevoIdFlota(),
+      placa: document.getElementById('documentoFlotaPlaca').value.trim(),
+      tipo: document.getElementById('documentoFlotaTipo').value,
+      numero: document.getElementById('documentoFlotaNumero').value.trim(),
+      fechaEmision: document.getElementById('documentoFlotaEmision').value || '',
+      fechaVencimiento: document.getElementById('documentoFlotaVencimiento').value,
+      observaciones: document.getElementById('documentoFlotaObs').value.trim(),
+      fotos: media.length > 0 ? media : (existente ? (existente.fotos || []) : [])
+    };
+    if (!datos.placa || !datos.fechaVencimiento) return;
+    if (id) {
+      const idx = flotaDocumentos.findIndex(function (x) { return x.id === id; });
+      if (idx !== -1) flotaDocumentos[idx] = datos;
+    } else {
+      flotaDocumentos.push(datos);
+    }
+    guardarFlotaDocumentos();
+    form.reset();
+    limpiarMediaSeleccionadaFlota('documentoFlotaFoto', 'documentoFlotaFotoPreview');
+    document.getElementById('documentoFlotaId').value = '';
+    document.getElementById('tituloFormDocumentoFlota').textContent = 'Registrar documento';
+    document.getElementById('btnCancelarDocumentoFlota').style.display = 'none';
+    poblarFiltrosDocumentosFlota();
+    renderTablaDocumentosFlota();
+  });
+
+  document.getElementById('cuerpoTablaDocumentosFlota').addEventListener('click', function (e) {
+    const btnEditar = e.target.closest('.btn-editar-documento-flota');
+    if (btnEditar) {
+      const d = flotaDocumentos.find(function (x) { return x.id === btnEditar.getAttribute('data-id'); });
+      if (!d) return;
+      document.getElementById('documentoFlotaId').value = d.id;
+      document.getElementById('documentoFlotaPlaca').value = d.placa;
+      document.getElementById('documentoFlotaTipo').value = d.tipo;
+      document.getElementById('documentoFlotaNumero').value = d.numero || '';
+      document.getElementById('documentoFlotaEmision').value = d.fechaEmision || '';
+      document.getElementById('documentoFlotaVencimiento').value = d.fechaVencimiento;
+      document.getElementById('documentoFlotaObs').value = d.observaciones || '';
+      precargarMediaFlota('documentoFlotaFoto', 'documentoFlotaFotoPreview', d.fotos);
+      document.getElementById('tituloFormDocumentoFlota').textContent = 'Editar documento';
+      document.getElementById('btnCancelarDocumentoFlota').style.display = '';
+      window.scrollTo(0, 0);
+      return;
+    }
+    const btnEliminar = e.target.closest('.btn-eliminar-documento-flota');
+    if (btnEliminar) {
+      if (!confirm('¿Eliminar este documento?')) return;
+      flotaDocumentos = flotaDocumentos.filter(function (x) { return x.id !== btnEliminar.getAttribute('data-id'); });
+      guardarFlotaDocumentos();
+      poblarFiltrosDocumentosFlota();
+      renderTablaDocumentosFlota();
+    }
+  });
+
+  document.getElementById('btnCancelarDocumentoFlota').addEventListener('click', function () {
+    document.getElementById('formDocumentoFlota').reset();
+    document.getElementById('documentoFlotaId').value = '';
+    limpiarMediaSeleccionadaFlota('documentoFlotaFoto', 'documentoFlotaFotoPreview');
+    document.getElementById('tituloFormDocumentoFlota').textContent = 'Registrar documento';
+    this.style.display = 'none';
+  });
+
+  ['documentoFlotaFiltroPlaca', 'documentoFlotaFiltroTipo'].forEach(function (id) {
+    document.getElementById(id).addEventListener('change', renderTablaDocumentosFlota);
   });
 
   /* ---- Sub-navegación y render general de la vista Flota ---- */
@@ -13537,6 +13888,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       renderTablaCombustible();
       poblarSelectDashboardCombustible();
       renderDashboardCombustible();
+    } else if (nombre === 'documentos') {
+      poblarFiltrosDocumentosFlota();
+      renderTablaDocumentosFlota();
     }
   }
 
@@ -13547,7 +13901,8 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     controldiario: document.getElementById('subvistaFlotaControlDiario'),
     fallascamion: document.getElementById('subvistaFlotaFallasCamion'),
     reparaciones: document.getElementById('subvistaFlotaReparaciones'),
-    combustible: document.getElementById('subvistaFlotaCombustible')
+    combustible: document.getElementById('subvistaFlotaCombustible'),
+    documentos: document.getElementById('subvistaFlotaDocumentos')
   };
   subNavBtnsFlota.forEach(function (b) {
     b.addEventListener('click', function () {
@@ -13588,21 +13943,24 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   // Agrupa una lista de rechazos/parciales por una clave (motivo, zona, supervisor...), contando
-  // casos y sumando el volumen rechazado, ordenado de mayor a menor cantidad de casos.
+  // casos (rechazos + parciales, igual que el MR% Pedido) y sumando el volumen SOLO de los casos
+  // totalmente rechazados (igual que el MR% Volumen: el remanente de las entregas parciales no
+  // cuenta como "volumen rechazado").
   function agruparRechazosPor(lista, obtenerClave) {
     const mapa = {};
     lista.forEach(function (r) {
       const clave = obtenerClave(r) || '(Sin dato)';
       if (!mapa[clave]) mapa[clave] = { clave: clave, count: 0, volumen: 0 };
       mapa[clave].count++;
-      mapa[clave].volumen += r.volumenRechazado || 0;
+      if (r.estado === 'Rechazado') mapa[clave].volumen += r.volumenRechazado || 0;
     });
     return Object.keys(mapa).map(function (k) { return mapa[k]; }).sort(function (a, b) { return b.count - a.count; });
   }
 
   // Agrupa los rechazos/parciales por cliente (código), para el ranking de reincidencia: cuenta
-  // sus casos, suma su volumen rechazado, guarda su motivo más frecuente y sus datos más recientes
-  // (zona, supervisor, ruta, cliente) según la última fecha en la que tuvo un caso.
+  // sus casos (rechazos + parciales), suma su volumen SOLO de los casos totalmente rechazados,
+  // guarda su motivo más frecuente y sus datos más recientes (zona, supervisor, ruta, cliente)
+  // según la última fecha en la que tuvo un caso.
   function agruparRechazosPorCliente(lista) {
     const mapa = {};
     lista.forEach(function (r) {
@@ -13614,7 +13972,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       }
       const g = mapa[r.codigo];
       g.count++;
-      g.volumen += r.volumenRechazado || 0;
+      if (r.estado === 'Rechazado') g.volumen += r.volumenRechazado || 0;
       const m = etiquetaMotivo(r.motivoRechazo);
       g.motivos[m] = (g.motivos[m] || 0) + 1;
       if (r.fecha >= g.ultimaFecha) {
@@ -13743,7 +14101,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const entregados = registros.filter(function (r) { return r.estado === 'Entregado'; }).length;
     const rechazados = registros.filter(function (r) { return r.estado === 'Rechazado'; }).length;
     const parciales = registros.filter(function (r) { return r.estado === 'Parcial'; }).length;
-    const volRechTotal = registros.reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0);
+    const volRechTotal = registros.filter(function (r) { return r.estado === 'Rechazado'; }).reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0);
     document.getElementById('statTilesDetalleClienteReinc').innerHTML = `
       <div class="stat-tile stat-hero"><div class="stat-label">Visitas registradas</div><div class="stat-valor">${visitas}</div></div>
       <div class="stat-tile stat-verde"><div class="stat-label">Entregadas</div><div class="stat-valor">${entregados}</div></div>
@@ -13819,7 +14177,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       </div>
       <div class="stat-tile stat-azul-tile">
         <div class="stat-label">Volumen rechazado total</div>
-        <div class="stat-valor">${formatearHl(rechazos.reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0))}</div>
+        <div class="stat-valor">${formatearHl(rechazos.filter(function (r) { return r.estado === 'Rechazado'; }).reduce(function (s, r) { return s + (r.volumenRechazado || 0); }, 0))}</div>
       </div>
       <div class="stat-tile stat-verde">
         <div class="stat-label">Motivo más frecuente</div>
@@ -13900,12 +14258,25 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   cargarFlotaFallas();
   cargarFlotaReparaciones();
   cargarFlotaCombustible();
+  cargarFlotaDocumentos();
   poblarSelectsCarretasFlota();
   poblarSelectsFallasAbiertasFlota();
+  poblarFiltrosDocumentosFlota();
   renderChecklistInventarioCamion(null);
   ['fallaCarretaFecha', 'fallaCamionFecha', 'reparacionFlotaFecha', 'inventarioCamionFecha', 'controlDiarioFecha', 'combustibleFecha'].forEach(function (id) {
     document.getElementById(id).value = hoyIsoFlota();
   });
+  // Activa la selección múltiple de fotos/videos en cada campo multimedia de Flota.
+  [
+    ['fallaCarretaFoto', 'fallaCarretaFotoPreview'],
+    ['fallaCamionFoto', 'fallaCamionFotoPreview'],
+    ['reparacionFlotaFoto', 'reparacionFlotaFotoPreview'],
+    ['controlDiarioFoto', 'controlDiarioFotoPreview'],
+    ['combustibleFotoSalida', 'combustibleFotoSalidaPreview'],
+    ['combustibleFotoRetorno', 'combustibleFotoRetornoPreview'],
+    ['combustibleFotoAbastecimiento', 'combustibleFotoAbastecimientoPreview'],
+    ['documentoFlotaFoto', 'documentoFlotaFotoPreview']
+  ].forEach(function (par) { inicializarCampoMultimediaFlota(par[0], par[1]); });
 
   cargarCatalogoDescuentos();
   cargarDescuentos();
@@ -14030,28 +14401,34 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     function () { renderTablaInventarioCamiones(valorBuscador('buscadorInventarioCamiones')); }
   );
 
-  registrarSincronizacion('flotaControlDiario', CLAVE_FLOTA_CONTROL_DIARIO,
+  registrarSincronizacionFragmentada('flotaControlDiario', CLAVE_FLOTA_CONTROL_DIARIO,
     function () { return flotaControlDiario; },
     function (v) { flotaControlDiario = v || []; },
     function () { renderListaControlDiario(valorBuscador('buscadorControlDiario')); }
   );
 
-  registrarSincronizacion('flotaFallas', CLAVE_FLOTA_FALLAS,
+  registrarSincronizacionFragmentada('flotaFallas', CLAVE_FLOTA_FALLAS,
     function () { return flotaFallas; },
     function (v) { flotaFallas = v || []; },
     function () { renderTablaFallas('carreta'); renderTablaFallas('camion'); renderTablaCarretas(valorBuscador('buscadorCarretas')); poblarSelectsFallasAbiertasFlota(); }
   );
 
-  registrarSincronizacion('flotaReparaciones', CLAVE_FLOTA_REPARACIONES,
+  registrarSincronizacionFragmentada('flotaReparaciones', CLAVE_FLOTA_REPARACIONES,
     function () { return flotaReparaciones; },
     function (v) { flotaReparaciones = v || []; },
     function () { renderTablaReparacionesFlota(); }
   );
 
-  registrarSincronizacion('flotaCombustible', CLAVE_FLOTA_COMBUSTIBLE,
+  registrarSincronizacionFragmentada('flotaCombustible', CLAVE_FLOTA_COMBUSTIBLE,
     function () { return flotaCombustible; },
     function (v) { flotaCombustible = v || []; },
     function () { renderTablaCombustible(); poblarSelectDashboardCombustible(); renderDashboardCombustible(); }
+  );
+
+  registrarSincronizacionFragmentada('flotaDocumentos', CLAVE_FLOTA_DOCUMENTOS,
+    function () { return flotaDocumentos; },
+    function (v) { flotaDocumentos = v || []; },
+    function () { poblarFiltrosDocumentosFlota(); renderTablaDocumentosFlota(); }
   );
 
   registrarSincronizacion('descuentosProductos', CLAVE_DESC_PRODUCTOS,

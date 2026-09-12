@@ -4886,7 +4886,14 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   function mostrarAvisoStorage() {
     storageDisponible = false;
     avisoStorage.style.display = 'block';
-    avisoStorage.textContent = 'Atención: este navegador no permite guardar datos de forma permanente en este archivo (almacenamiento local bloqueado). La información SÍ se mostrará mientras la página esté abierta, pero se perderá al cerrar o recargar. Usa los botones "Exportar JSON" antes de cerrar para no perder tu información.';
+    // Si la nube está conectada y autenticada, lo que se guardó en este momento sí viaja a Firestore
+    // (las funciones de guardado ya no dependen de que el almacenamiento local funcione), así que el
+    // aviso no debe sonar como si se fuera a perder todo — solo la copia local de este navegador.
+    if (nubeAutenticada) {
+      avisoStorage.textContent = 'Atención: el almacenamiento local de este navegador está lleno o bloqueado (probablemente por las fotos/videos de Flota). Tu información SÍ se está guardando en la nube con normalidad (mira el ícono de sincronización arriba) — no se pierde. Para liberar espacio en este navegador, puedes recargar la página cuando quieras: los datos se vuelven a traer desde la nube.';
+    } else {
+      avisoStorage.textContent = 'Atención: este navegador no permite guardar datos de forma permanente en este archivo (almacenamiento local lleno o bloqueado), y no hay conexión con la nube en este momento. La información SÍ se mostrará mientras la página esté abierta, pero podría perderse al cerrar o recargar. Usa los botones "Exportar JSON" antes de cerrar para no perder tu información, o conecta la nube (Firebase) para que quede a salvo automáticamente.';
+    }
   }
 
   /* ===================================================================
@@ -13001,56 +13008,59 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     catch (e) { flotaCarretas = []; mostrarAvisoStorage(); }
   }
   function guardarFlotaCarretas() {
-    try { localStorage.setItem(CLAVE_FLOTA_CARRETAS, JSON.stringify(flotaCarretas)); guardarEnNube('flotaCarretas', flotaCarretas); }
-    catch (e) { mostrarAvisoStorage(); }
+    try { localStorage.setItem(CLAVE_FLOTA_CARRETAS, JSON.stringify(flotaCarretas)); } catch (e) { mostrarAvisoStorage(); }
+    guardarEnNube('flotaCarretas', flotaCarretas);
   }
   function cargarFlotaCamiones() {
     try { const g = localStorage.getItem(CLAVE_FLOTA_CAMIONES); flotaCamiones = g ? JSON.parse(g) : []; }
     catch (e) { flotaCamiones = []; mostrarAvisoStorage(); }
   }
   function guardarFlotaCamiones() {
-    try { localStorage.setItem(CLAVE_FLOTA_CAMIONES, JSON.stringify(flotaCamiones)); guardarEnNube('flotaCamiones', flotaCamiones); }
-    catch (e) { mostrarAvisoStorage(); }
+    try { localStorage.setItem(CLAVE_FLOTA_CAMIONES, JSON.stringify(flotaCamiones)); } catch (e) { mostrarAvisoStorage(); }
+    guardarEnNube('flotaCamiones', flotaCamiones);
   }
   function cargarFlotaControlDiario() {
     try { const g = localStorage.getItem(CLAVE_FLOTA_CONTROL_DIARIO); flotaControlDiario = g ? JSON.parse(g) : []; }
     catch (e) { flotaControlDiario = []; mostrarAvisoStorage(); }
   }
   function guardarFlotaControlDiario() {
-    try { localStorage.setItem(CLAVE_FLOTA_CONTROL_DIARIO, JSON.stringify(flotaControlDiario)); guardarEnNubeFragmentada('flotaControlDiario', flotaControlDiario); }
-    catch (e) { mostrarAvisoStorage(); }
+    // El guardado en la nube se intenta SIEMPRE, así el almacenamiento local de este navegador esté
+    // lleno o bloqueado (algo que puede pasar fácil con las fotos/videos de Flota): si localStorage
+    // falla, no se pierde el intento de guardar en Firestore, que tiene mucho más espacio disponible.
+    try { localStorage.setItem(CLAVE_FLOTA_CONTROL_DIARIO, JSON.stringify(flotaControlDiario)); } catch (e) { mostrarAvisoStorage(); }
+    guardarEnNubeFragmentada('flotaControlDiario', flotaControlDiario);
   }
   function cargarFlotaFallas() {
     try { const g = localStorage.getItem(CLAVE_FLOTA_FALLAS); flotaFallas = g ? JSON.parse(g) : []; }
     catch (e) { flotaFallas = []; mostrarAvisoStorage(); }
   }
   function guardarFlotaFallas() {
-    try { localStorage.setItem(CLAVE_FLOTA_FALLAS, JSON.stringify(flotaFallas)); guardarEnNubeFragmentada('flotaFallas', flotaFallas); }
-    catch (e) { mostrarAvisoStorage(); }
+    try { localStorage.setItem(CLAVE_FLOTA_FALLAS, JSON.stringify(flotaFallas)); } catch (e) { mostrarAvisoStorage(); }
+    guardarEnNubeFragmentada('flotaFallas', flotaFallas);
   }
   function cargarFlotaReparaciones() {
     try { const g = localStorage.getItem(CLAVE_FLOTA_REPARACIONES); flotaReparaciones = g ? JSON.parse(g) : []; }
     catch (e) { flotaReparaciones = []; mostrarAvisoStorage(); }
   }
   function guardarFlotaReparaciones() {
-    try { localStorage.setItem(CLAVE_FLOTA_REPARACIONES, JSON.stringify(flotaReparaciones)); guardarEnNubeFragmentada('flotaReparaciones', flotaReparaciones); }
-    catch (e) { mostrarAvisoStorage(); }
+    try { localStorage.setItem(CLAVE_FLOTA_REPARACIONES, JSON.stringify(flotaReparaciones)); } catch (e) { mostrarAvisoStorage(); }
+    guardarEnNubeFragmentada('flotaReparaciones', flotaReparaciones);
   }
   function cargarFlotaCombustible() {
     try { const g = localStorage.getItem(CLAVE_FLOTA_COMBUSTIBLE); flotaCombustible = g ? JSON.parse(g) : []; }
     catch (e) { flotaCombustible = []; mostrarAvisoStorage(); }
   }
   function guardarFlotaCombustible() {
-    try { localStorage.setItem(CLAVE_FLOTA_COMBUSTIBLE, JSON.stringify(flotaCombustible)); guardarEnNubeFragmentada('flotaCombustible', flotaCombustible); }
-    catch (e) { mostrarAvisoStorage(); }
+    try { localStorage.setItem(CLAVE_FLOTA_COMBUSTIBLE, JSON.stringify(flotaCombustible)); } catch (e) { mostrarAvisoStorage(); }
+    guardarEnNubeFragmentada('flotaCombustible', flotaCombustible);
   }
   function cargarFlotaDocumentos() {
     try { const g = localStorage.getItem(CLAVE_FLOTA_DOCUMENTOS); flotaDocumentos = g ? JSON.parse(g) : []; }
     catch (e) { flotaDocumentos = []; mostrarAvisoStorage(); }
   }
   function guardarFlotaDocumentos() {
-    try { localStorage.setItem(CLAVE_FLOTA_DOCUMENTOS, JSON.stringify(flotaDocumentos)); guardarEnNubeFragmentada('flotaDocumentos', flotaDocumentos); }
-    catch (e) { mostrarAvisoStorage(); }
+    try { localStorage.setItem(CLAVE_FLOTA_DOCUMENTOS, JSON.stringify(flotaDocumentos)); } catch (e) { mostrarAvisoStorage(); }
+    guardarEnNubeFragmentada('flotaDocumentos', flotaDocumentos);
   }
 
   // Llena los datalist de placas y rutas/BK con lo que ya aparece en Asistencia del Personal,

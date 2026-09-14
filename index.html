@@ -2368,8 +2368,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <p class="subtitulo">Base de datos maestra del personal contratado — los datos se guardan automáticamente en este navegador.</p>
 
     <div class="panel">
-      <h2>Agregar nuevo colaborador</h2>
+      <h2 id="tituloFormRegistro">Agregar nuevo colaborador</h2>
       <form id="formRegistro">
+        <input type="hidden" id="registroEditIdx" value="">
         <h3 class="subtitulo-grupo">Datos laborales</h3>
 
         <div class="campo">
@@ -2535,8 +2536,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
         </div>
 
         <div class="acciones-form">
-          <button type="submit" class="btn-agregar">+ Agregar registro</button>
+          <button type="submit" class="btn-agregar" id="btnGuardarFormRegistro">+ Agregar registro</button>
           <button type="reset" class="btn-limpiar-form">Limpiar formulario</button>
+          <button type="button" class="btn-secundario" id="btnCancelarEdicionRegistro" style="display:none;">Cancelar edición</button>
         </div>
       </form>
     </div>
@@ -2611,8 +2613,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <!-- ---- Sub-vista: Base de datos de postulantes ---- -->
     <div id="subvistaBaseDatosPostulantes">
       <div class="panel">
-        <h2>Agregar nuevo postulante</h2>
+        <h2 id="tituloFormPostulante">Agregar nuevo postulante</h2>
         <form id="formPostulante">
+          <input type="hidden" id="postulanteEditIdx" value="">
           <div class="campo">
             <label for="postFecha">Fecha de postulación</label>
             <input type="date" id="postFecha" name="fecha">
@@ -2684,8 +2687,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
           </div>
 
           <div class="acciones-form">
-            <button type="submit" class="btn-agregar">+ Agregar postulante</button>
+            <button type="submit" class="btn-agregar" id="btnGuardarFormPostulante">+ Agregar postulante</button>
             <button type="reset" class="btn-limpiar-form">Limpiar formulario</button>
+            <button type="button" class="btn-secundario" id="btnCancelarEdicionPostulante" style="display:none;">Cancelar edición</button>
           </div>
         </form>
       </div>
@@ -4486,8 +4490,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <div id="subvistaBaseDatosEpp">
 
       <div class="panel">
-        <h2>Registrar entrega de EPP</h2>
+        <h2 id="tituloFormEpp">Registrar entrega de EPP</h2>
         <div class="fila-cabecera-asistencia">
+          <input type="hidden" id="eppEditIdx" value="">
           <div class="campo">
             <label for="eppFecha">Fecha de entrega</label>
             <input type="date" id="eppFecha">
@@ -4533,7 +4538,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <label for="eppObservaciones">Observaciones (opcional)</label>
           <input type="text" id="eppObservaciones" placeholder="Notas adicionales sobre esta entrega">
         </div>
-        <button type="button" class="btn-primario" id="btnRegistrarEpp">+ Registrar entrega</button>
+        <div class="grupo-botones">
+          <button type="button" class="btn-primario" id="btnRegistrarEpp">+ Registrar entrega</button>
+          <button type="button" class="btn-secundario" id="btnCancelarEdicionEpp" style="display:none;">Cancelar edición</button>
+        </div>
       </div>
 
       <div class="panel">
@@ -5887,7 +5895,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <td>${escaparHtml(r.refNombre)}</td>
             <td>${escaparHtml(r.refParentesco)}</td>
             <td>${escaparHtml(r.refTelefono)}</td>
-            <td><button type="button" class="btn-eliminar" data-idx="${r.__idx}">Eliminar</button></td>
+            <td><button type="button" class="btn-secundario btn-editar-registro" data-idx="${r.__idx}">Editar</button> <button type="button" class="btn-eliminar" data-idx="${r.__idx}">Eliminar</button></td>
           </tr>
         `;
       }).join('');
@@ -5937,6 +5945,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         return;
       }
 
+      const idxEdicion = document.getElementById('registroEditIdx').value;
+      if (idxEdicion !== '') {
+        const idx = parseInt(idxEdicion, 10);
+        registros[idx] = nuevo;
+        guardarRegistros();
+        renderTabla(buscador.value);
+        cancelarEdicionRegistro();
+        alert('Registro actualizado correctamente.');
+        return;
+      }
+
       registros.push(nuevo);
       guardarRegistros();
       renderTabla(buscador.value);
@@ -5949,7 +5968,33 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return false;
   });
 
+  function cancelarEdicionRegistro() {
+    document.getElementById('registroEditIdx').value = '';
+    document.getElementById('tituloFormRegistro').textContent = 'Agregar nuevo colaborador';
+    document.getElementById('btnGuardarFormRegistro').textContent = '+ Agregar registro';
+    document.getElementById('btnCancelarEdicionRegistro').style.display = 'none';
+    formRegistro.reset();
+  }
+  document.getElementById('btnCancelarEdicionRegistro').addEventListener('click', cancelarEdicionRegistro);
+
   cuerpoTabla.addEventListener('click', function (e) {
+    const btnEditar = e.target.closest('.btn-editar-registro');
+    if (btnEditar) {
+      const idx = parseInt(btnEditar.getAttribute('data-idx'), 10);
+      const r = registros[idx];
+      if (!r) return;
+      document.getElementById('registroEditIdx').value = idx;
+      Object.keys(r).forEach(function (campo) {
+        if (campo === '__idx') return;
+        const el = document.getElementById(campo);
+        if (el) el.value = r[campo] || '';
+      });
+      document.getElementById('tituloFormRegistro').textContent = 'Editar colaborador';
+      document.getElementById('btnGuardarFormRegistro').textContent = '💾 Guardar cambios';
+      document.getElementById('btnCancelarEdicionRegistro').style.display = '';
+      window.scrollTo(0, 0);
+      return;
+    }
     if (e.target.classList.contains('btn-eliminar')) {
       const idx = parseInt(e.target.getAttribute('data-idx'), 10);
       if (confirm('¿Eliminar este registro? Esta acción no se puede deshacer.')) {
@@ -6382,7 +6427,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
                 </div>
               </div>
             </td>
-            <td><button type="button" class="btn-eliminar" data-idx="${r.__idx}">Eliminar</button></td>
+            <td><button type="button" class="btn-secundario btn-editar-postulante" data-idx="${r.__idx}">Editar</button> <button type="button" class="btn-eliminar" data-idx="${r.__idx}">Eliminar</button></td>
           </tr>
         `;
       }).join('');
@@ -6414,6 +6459,17 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         return;
       }
 
+      const idxEdicion = document.getElementById('postulanteEditIdx').value;
+      if (idxEdicion !== '') {
+        const idx = parseInt(idxEdicion, 10);
+        postulantes[idx] = nuevo;
+        guardarPostulantes();
+        renderTablaPostulantes(buscadorPostulantes.value);
+        cancelarEdicionPostulante();
+        alert('Postulante actualizado correctamente.');
+        return;
+      }
+
       postulantes.push(nuevo);
       guardarPostulantes();
       renderTablaPostulantes(buscadorPostulantes.value);
@@ -6426,7 +6482,38 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     return false;
   });
 
+  function cancelarEdicionPostulante() {
+    document.getElementById('postulanteEditIdx').value = '';
+    document.getElementById('tituloFormPostulante').textContent = 'Agregar nuevo postulante';
+    document.getElementById('btnGuardarFormPostulante').textContent = '+ Agregar postulante';
+    document.getElementById('btnCancelarEdicionPostulante').style.display = 'none';
+    formPostulante.reset();
+  }
+  document.getElementById('btnCancelarEdicionPostulante').addEventListener('click', cancelarEdicionPostulante);
+
   cuerpoTablaPostulantes.addEventListener('click', function (e) {
+    const btnEditar = e.target.closest('.btn-editar-postulante');
+    if (btnEditar) {
+      const idx = parseInt(btnEditar.getAttribute('data-idx'), 10);
+      const p = postulantes[idx];
+      if (!p) return;
+      document.getElementById('postulanteEditIdx').value = idx;
+      document.getElementById('postFecha').value = p.fecha || '';
+      document.getElementById('postEstado').value = p.estado || '';
+      document.getElementById('postPuesto').value = p.puesto || '';
+      document.getElementById('postNombres').value = p.nombres || '';
+      document.getElementById('postApellidos').value = p.apellidos || '';
+      document.getElementById('postDni').value = p.dni || '';
+      document.getElementById('postCelular').value = p.celular || '';
+      document.getElementById('postPlataforma').value = p.plataforma || '';
+      document.getElementById('postAdmitido').value = p.admitido || '';
+      document.getElementById('postObservaciones').value = p.observaciones || '';
+      document.getElementById('tituloFormPostulante').textContent = 'Editar postulante';
+      document.getElementById('btnGuardarFormPostulante').textContent = '💾 Guardar cambios';
+      document.getElementById('btnCancelarEdicionPostulante').style.display = '';
+      window.scrollTo(0, 0);
+      return;
+    }
     if (e.target.classList.contains('btn-eliminar')) {
       const idx = parseInt(e.target.getAttribute('data-idx'), 10);
       if (confirm('¿Eliminar este postulante? Esta acción no se puede deshacer.')) {
@@ -12660,10 +12747,26 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const cantidad = parseInt(document.getElementById('eppCantidad').value, 10) || 1;
     const motivo = document.getElementById('eppMotivo').value;
     const observaciones = document.getElementById('eppObservaciones').value.trim();
+    const idxEdicion = document.getElementById('eppEditIdx').value;
 
     if (!fecha) { alert('Selecciona la fecha de entrega.'); return; }
     if (!colaborador) { alert('Escribe o elige el nombre del colaborador.'); return; }
     if (!item) { alert('Selecciona el ítem de EPP entregado.'); return; }
+
+    if (idxEdicion !== '') {
+      const idx = parseInt(idxEdicion, 10);
+      const registro = entregasEpp[idx];
+      if (registro) {
+        registro.fecha = fecha; registro.colaborador = colaborador; registro.puesto = puesto; registro.item = item;
+        registro.talla = talla; registro.cantidad = cantidad; registro.motivo = motivo; registro.observaciones = observaciones;
+        guardarEpp();
+        renderTablaEpp(buscadorEpp.value);
+        actualizarSelectHistorialEpp();
+        alert('Entrega actualizada correctamente.');
+      }
+      cancelarEdicionEpp();
+      return;
+    }
 
     entregasEpp.push({
       id: 'epp_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
@@ -12682,6 +12785,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     document.getElementById('eppObservaciones').value = '';
     alert('Entrega de EPP registrada correctamente.');
   });
+
+  function cancelarEdicionEpp() {
+    document.getElementById('eppEditIdx').value = '';
+    document.getElementById('tituloFormEpp').textContent = 'Registrar entrega de EPP';
+    document.getElementById('btnRegistrarEpp').textContent = '+ Registrar entrega';
+    document.getElementById('btnCancelarEdicionEpp').style.display = 'none';
+    document.getElementById('eppFecha').value = '';
+    eppColaborador.value = '';
+    eppPuesto.value = '';
+    document.getElementById('eppItem').value = '';
+    document.getElementById('eppTalla').value = '';
+    document.getElementById('eppCantidad').value = '1';
+    document.getElementById('eppMotivo').value = 'Entrega inicial';
+    document.getElementById('eppObservaciones').value = '';
+  }
+  document.getElementById('btnCancelarEdicionEpp').addEventListener('click', cancelarEdicionEpp);
 
   function renderTablaEpp(filtro) {
     const texto = (filtro || '').toLowerCase().trim();
@@ -12709,7 +12828,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <td>${r.cantidad}</td>
             <td>${escaparHtml(r.motivo)}</td>
             <td>${escaparHtml(r.observaciones)}</td>
-            <td><button type="button" class="btn-eliminar btn-eliminar-epp" data-idx="${r.__idx}">Eliminar</button></td>
+            <td><button type="button" class="btn-secundario btn-editar-epp" data-idx="${r.__idx}">Editar</button> <button type="button" class="btn-eliminar btn-eliminar-epp" data-idx="${r.__idx}">Eliminar</button></td>
           </tr>
         `;
       }).join('');
@@ -12719,16 +12838,37 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   }
 
   document.getElementById('cuerpoTablaEpp').addEventListener('click', function (e) {
-    const btn = e.target.closest('.btn-eliminar-epp');
-    if (!btn) return;
-    const idx = parseInt(btn.getAttribute('data-idx'), 10);
-    const r = entregasEpp[idx];
-    if (!r) return;
-    if (confirm(`¿Eliminar la entrega de "${r.item}" a ${r.colaborador || '(sin nombre)'}? Esta acción no se puede deshacer.`)) {
-      entregasEpp.splice(idx, 1);
-      guardarEpp();
-      renderTablaEpp(buscadorEpp.value);
-      actualizarSelectHistorialEpp();
+    const btnEliminar = e.target.closest('.btn-eliminar-epp');
+    if (btnEliminar) {
+      const idx = parseInt(btnEliminar.getAttribute('data-idx'), 10);
+      const r = entregasEpp[idx];
+      if (!r) return;
+      if (confirm(`¿Eliminar la entrega de "${r.item}" a ${r.colaborador || '(sin nombre)'}? Esta acción no se puede deshacer.`)) {
+        entregasEpp.splice(idx, 1);
+        guardarEpp();
+        renderTablaEpp(buscadorEpp.value);
+        actualizarSelectHistorialEpp();
+      }
+      return;
+    }
+    const btnEditar = e.target.closest('.btn-editar-epp');
+    if (btnEditar) {
+      const idx = parseInt(btnEditar.getAttribute('data-idx'), 10);
+      const r = entregasEpp[idx];
+      if (!r) return;
+      document.getElementById('eppEditIdx').value = idx;
+      document.getElementById('eppFecha').value = r.fecha || '';
+      eppColaborador.value = r.colaborador || '';
+      eppPuesto.value = r.puesto || '';
+      document.getElementById('eppItem').value = r.item || '';
+      document.getElementById('eppTalla').value = r.talla || '';
+      document.getElementById('eppCantidad').value = r.cantidad || 1;
+      document.getElementById('eppMotivo').value = r.motivo || 'Entrega inicial';
+      document.getElementById('eppObservaciones').value = r.observaciones || '';
+      document.getElementById('tituloFormEpp').textContent = 'Editar entrega de EPP';
+      document.getElementById('btnRegistrarEpp').textContent = '💾 Guardar cambios';
+      document.getElementById('btnCancelarEdicionEpp').style.display = '';
+      window.scrollTo(0, 0);
     }
   });
 

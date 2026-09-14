@@ -4136,6 +4136,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
       <button type="button" class="subnav-btn" data-subvista-flota="documentos">📄 Documentos y Vencimientos</button>
     </div>
 
+    <div class="panel" style="border:1px solid var(--borde); background:#fafbfd;">
+      <h2 style="font-size:14px;">💾 Exportar datos de Flota</h2>
+      <p class="ayuda-guardar" style="margin:0 0 10px 0;">El Excel es para leer/imprimir un resumen (sin las fotos y videos); el JSON es el respaldo completo (con fotos y videos incluidos) que puedes usar para no perder nada.</p>
+      <div class="grupo-botones">
+        <button type="button" class="btn-secundario" id="btnExportarExcelFlota">📊 Exportar todo (Excel)</button>
+        <button type="button" class="btn-secundario" id="btnExportarJsonFlota">🗄️ Exportar todo (JSON, respaldo completo)</button>
+      </div>
+    </div>
+
     <!-- ---- CARRETAS ---- -->
     <div id="subvistaFlotaCarretas">
       <div class="panel">
@@ -13946,6 +13955,106 @@ https://github.com/nodeca/pako/blob/main/LICENSE
 
   ['documentoFlotaFiltroPlaca', 'documentoFlotaFiltroTipo'].forEach(function (id) {
     document.getElementById(id).addEventListener('change', renderTablaDocumentosFlota);
+  });
+
+  /* ---- Exportar todo (Excel / JSON) y vaciar toda la información de Flota ---- */
+  function construirHojaExcelFlota(datos, anchos) {
+    const hoja = XLSX.utils.json_to_sheet(datos);
+    if (anchos) hoja['!cols'] = anchos.map(function (w) { return { wch: w }; });
+    return hoja;
+  }
+
+  function construirLibroExcelFlota() {
+    const libro = XLSX.utils.book_new();
+
+    const resumen = [
+      { 'Módulo': 'Carretas', 'Cantidad de registros': flotaCarretas.length },
+      { 'Módulo': 'Inventario de Camiones', 'Cantidad de registros': flotaCamiones.length },
+      { 'Módulo': 'Control Diario', 'Cantidad de registros': flotaControlDiario.length },
+      { 'Módulo': 'Fallas (carretas y camiones)', 'Cantidad de registros': flotaFallas.length },
+      { 'Módulo': 'Reparaciones', 'Cantidad de registros': flotaReparaciones.length },
+      { 'Módulo': 'Combustible', 'Cantidad de registros': flotaCombustible.length },
+      { 'Módulo': 'Documentos y Vencimientos', 'Cantidad de registros': flotaDocumentos.length }
+    ];
+    XLSX.utils.book_append_sheet(libro, construirHojaExcelFlota(resumen, [30, 20]), 'Resumen');
+
+    XLSX.utils.book_append_sheet(libro, construirHojaExcelFlota(flotaCarretas.map(function (c) {
+      return { 'N° Carreta': c.numero, 'Placa Asignada': c.placa, 'Ruta / BK': c.ruta, 'Estado': c.estado };
+    }), [14, 16, 14, 16]), 'Carretas');
+
+    XLSX.utils.book_append_sheet(libro, construirHojaExcelFlota(flotaCamiones.map(function (r) {
+      const fila = { 'Placa': r.placa, 'Fecha': formatearFecha(r.fecha) };
+      ITEMS_INVENTARIO_CAMION.forEach(function (item) { fila[item] = (r.items || {})[item] || ''; });
+      fila['Observaciones'] = r.observaciones || '';
+      return fila;
+    }), [12, 12].concat(ITEMS_INVENTARIO_CAMION.map(function () { return 16; })).concat([30])), 'Inventario Camiones');
+
+    XLSX.utils.book_append_sheet(libro, construirHojaExcelFlota(flotaControlDiario.map(function (r) {
+      return {
+        'Placa': r.placa, 'Fecha': formatearFecha(r.fecha),
+        'Salida - Estado': r.salida ? r.salida.estado : '', 'Salida - Comentario': r.salida ? r.salida.comentario : '', 'Salida - N° Fotos/Videos': r.salida ? (r.salida.fotos || (r.salida.foto ? [1] : [])).length : 0,
+        'Retorno - Estado': r.retorno ? r.retorno.estado : '', 'Retorno - Comentario': r.retorno ? r.retorno.comentario : '', 'Retorno - N° Fotos/Videos': r.retorno ? (r.retorno.fotos || (r.retorno.foto ? [1] : [])).length : 0
+      };
+    }), [12, 12, 14, 30, 12, 14, 30, 12]), 'Control Diario');
+
+    XLSX.utils.book_append_sheet(libro, construirHojaExcelFlota(flotaFallas.map(function (f) {
+      const sem = semaforoReparacionFlota(f);
+      return {
+        'Unidad': f.unidad === 'carreta' ? 'Carreta' : 'Camión',
+        'Referencia': f.unidad === 'carreta' ? f.refCarreta : f.refPlaca,
+        'Tipo': f.tipo, 'Descripción': f.descripcion,
+        'Fecha Reporte': formatearFecha(f.fechaReporte), 'Fecha Reparación': f.fechaReparacion ? formatearFecha(f.fechaReparacion) : '',
+        'Días': diasEntreFechasFlota(f.fechaReporte, f.fechaReparacion || hoyIsoFlota()),
+        'Estado': sem.texto, 'N° Fotos/Videos': (f.fotos !== undefined ? f.fotos : (f.foto ? [1] : [])).length
+      };
+    }), [12, 14, 14, 34, 14, 16, 8, 22, 12]), 'Fallas');
+
+    XLSX.utils.book_append_sheet(libro, construirHojaExcelFlota(flotaReparaciones.map(function (r) {
+      return {
+        'Unidad': r.refCarreta ? ('Carreta ' + r.refCarreta) : ('Placa ' + r.refPlaca),
+        'Fecha': formatearFecha(r.fecha), 'Descripción': r.descripcion, 'Costo': r.costo || 0,
+        'N° Fotos/Videos': (r.fotos !== undefined ? r.fotos : (r.foto ? [1] : [])).length
+      };
+    }), [18, 12, 40, 10, 12]), 'Reparaciones');
+
+    XLSX.utils.book_append_sheet(libro, construirHojaExcelFlota(flotaCombustible.map(function (r) {
+      return {
+        'Placa': r.placa, 'Fecha': formatearFecha(r.fecha), 'Km': r.km || 0,
+        'Nivel Salida': r.nivelSalida !== '' && r.nivelSalida != null ? r.nivelSalida + '%' : '', 'N° Fotos Salida': (r.fotosSalida || (r.fotoSalida ? [1] : [])).length,
+        'Nivel Retorno': r.nivelRetorno !== '' && r.nivelRetorno != null ? r.nivelRetorno + '%' : '', 'N° Fotos Retorno': (r.fotosRetorno || (r.fotoRetorno ? [1] : [])).length,
+        'Galones': r.galones || 0, 'Monto': r.monto || 0, 'N° Fotos Abastecimiento': (r.fotosAbastecimiento || (r.fotoAbastecimiento ? [1] : [])).length
+      };
+    }), [12, 12, 10, 12, 12, 12, 12, 10, 10, 16]), 'Combustible');
+
+    XLSX.utils.book_append_sheet(libro, construirHojaExcelFlota(flotaDocumentos.map(function (d) {
+      const sem = semaforoVencimientoFlota(d.fechaVencimiento);
+      return {
+        'Placa': d.placa, 'Tipo': d.tipo, 'N° Documento': d.numero || '',
+        'Fecha Emisión': d.fechaEmision ? formatearFecha(d.fechaEmision) : '', 'Fecha Vencimiento': formatearFecha(d.fechaVencimiento),
+        'Días Restantes': diasEntreFechasFlota(hoyIsoFlota(), d.fechaVencimiento), 'Estado': sem.texto,
+        'N° Fotos/Videos': (d.fotos || []).length, 'Observaciones': d.observaciones || ''
+      };
+    }), [12, 24, 16, 14, 16, 12, 20, 12, 30]), 'Documentos');
+
+    return libro;
+  }
+
+  document.getElementById('btnExportarExcelFlota').addEventListener('click', function () {
+    if (typeof XLSX === 'undefined') { alert('No se pudo cargar el generador de archivos Excel. Intenta recargar la página.'); return; }
+    const totalRegistros = flotaCarretas.length + flotaCamiones.length + flotaControlDiario.length + flotaFallas.length + flotaReparaciones.length + flotaCombustible.length + flotaDocumentos.length;
+    if (totalRegistros === 0) { alert('Todavía no hay ningún dato de Flota para exportar.'); return; }
+    const libro = construirLibroExcelFlota();
+    XLSX.writeFile(libro, 'flota_resumen_' + hoyIsoFlota() + '.xlsx');
+  });
+
+  document.getElementById('btnExportarJsonFlota').addEventListener('click', function () {
+    const respaldo = {
+      exportadoEl: new Date().toISOString(),
+      flotaCarretas: flotaCarretas, flotaCamiones: flotaCamiones, flotaControlDiario: flotaControlDiario,
+      flotaFallas: flotaFallas, flotaReparaciones: flotaReparaciones, flotaCombustible: flotaCombustible,
+      flotaDocumentos: flotaDocumentos
+    };
+    descargarArchivo('flota_respaldo_completo_' + hoyIsoFlota() + '.json', JSON.stringify(respaldo, null, 2), 'application/json');
   });
 
   /* ---- Sub-navegación y render general de la vista Flota ---- */

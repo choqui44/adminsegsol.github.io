@@ -2807,9 +2807,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
       </div>
 
       <div class="panel">
-        <h2>Registrar inasistencia</h2>
+        <h2 id="tituloFormInasistencia">Registrar inasistencia</h2>
         <p class="ayuda-guardar" style="margin:0 0 12px 0;">Usa este apartado cuando un colaborador NO asista, indicando el motivo.</p>
         <div class="fila-cabecera-asistencia">
+          <input type="hidden" id="asistenciaEditIdx" value="">
           <div class="campo">
             <label for="inasistFecha">Fecha</label>
             <input type="date" id="inasistFecha">
@@ -2846,6 +2847,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
           <div class="campo">
             <label>&nbsp;</label>
             <button type="button" class="btn-peligro" id="btnRegistrarInasistencia">+ Registrar inasistencia</button>
+          </div>
+          <div class="campo">
+            <label>&nbsp;</label>
+            <button type="button" class="btn-secundario" id="btnCancelarEdicionAsistencia" style="display:none;">Cancelar edición</button>
           </div>
         </div>
       </div>
@@ -6883,10 +6888,30 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     const puesto = inasistPuesto.value.trim();
     const situacion = inasistSituacion.value;
     const motivo = inasistMotivo.value.trim();
+    const idxEdicion = document.getElementById('asistenciaEditIdx').value;
 
     if (!fecha) { alert('Selecciona la fecha de la inasistencia.'); return; }
     if (!nombre) { alert('Escribe o elige el nombre del colaborador.'); return; }
     if (!situacion) { alert('Selecciona si está Justificado, No justificado o es Tardanza.'); return; }
+
+    if (idxEdicion !== '') {
+      // Edición de un registro existente: se mantienen su tipo, placa y ruta originales, y se
+      // actualizan los demás campos con lo que se cambió en el formulario.
+      const idx = parseInt(idxEdicion, 10);
+      const registro = asistencias[idx];
+      if (registro) {
+        registro.fecha = fecha;
+        registro.nombre = nombre;
+        registro.puesto = puesto;
+        registro.situacion = situacion;
+        registro.motivo = motivo;
+        guardarAsistencias();
+        renderTablaAsistencia(buscadorAsistencia.value);
+        alert('Registro actualizado correctamente.');
+      }
+      cancelarEdicionAsistencia();
+      return;
+    }
 
     asistencias.push({
       fecha: fecha,
@@ -6907,6 +6932,19 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     inasistMotivo.value = '';
     alert('Inasistencia registrada correctamente.');
   });
+
+  function cancelarEdicionAsistencia() {
+    document.getElementById('asistenciaEditIdx').value = '';
+    document.getElementById('tituloFormInasistencia').textContent = 'Registrar inasistencia';
+    document.getElementById('btnRegistrarInasistencia').textContent = '+ Registrar inasistencia';
+    document.getElementById('btnCancelarEdicionAsistencia').style.display = 'none';
+    inasistFecha.value = '';
+    inasistNombre.value = '';
+    inasistPuesto.value = '';
+    inasistSituacion.value = '';
+    inasistMotivo.value = '';
+  }
+  document.getElementById('btnCancelarEdicionAsistencia').addEventListener('click', cancelarEdicionAsistencia);
 
   function renderTablaAsistencia(filtro) {
     const texto = (filtro || '').toLowerCase().trim();
@@ -6938,7 +6976,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
             <td>${escaparHtml(r.puesto)}</td>
             <td>${badgeSituacion}</td>
             <td>${escaparHtml(r.motivo)}</td>
-            <td><button type="button" class="btn-eliminar" data-idx="${r.__idx}">Eliminar</button></td>
+            <td><button type="button" class="btn-secundario btn-editar-asistencia" data-idx="${r.__idx}">Editar</button> <button type="button" class="btn-eliminar" data-idx="${r.__idx}">Eliminar</button></td>
           </tr>
         `;
       }).join('');
@@ -6956,6 +6994,22 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         guardarAsistencias();
         renderTablaAsistencia(buscadorAsistencia.value);
       }
+      return;
+    }
+    if (e.target.classList.contains('btn-editar-asistencia')) {
+      const idx = parseInt(e.target.getAttribute('data-idx'), 10);
+      const r = asistencias[idx];
+      if (!r) return;
+      document.getElementById('asistenciaEditIdx').value = idx;
+      inasistFecha.value = r.fecha || '';
+      inasistNombre.value = r.nombre || '';
+      inasistPuesto.value = r.puesto || '';
+      inasistSituacion.value = r.situacion || '';
+      inasistMotivo.value = r.motivo || '';
+      document.getElementById('tituloFormInasistencia').textContent = 'Editar registro (' + (r.tipo || 'Inasistencia') + ')';
+      document.getElementById('btnRegistrarInasistencia').textContent = '💾 Guardar cambios';
+      document.getElementById('btnCancelarEdicionAsistencia').style.display = '';
+      window.scrollTo(0, 0);
     }
   });
 

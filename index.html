@@ -4581,6 +4581,22 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <!-- ---- Sub-vista: Stock de EPP ---- -->
     <div id="subvistaStockEpp" style="display:none">
       <div class="panel">
+        <h2>Ítems / Productos de EPP</h2>
+        <p class="ayuda-guardar" style="margin:0 0 12px 0;">Agrega o quita los ítems que quieras controlar en tu stock (no estás limitado a una lista fija).</p>
+        <div class="fila-cabecera-asistencia">
+          <div class="campo">
+            <label for="nuevoItemEpp">Nuevo ítem o producto</label>
+            <input type="text" id="nuevoItemEpp" placeholder="Ej: Mascarilla, Protector auditivo...">
+          </div>
+          <div class="campo">
+            <label>&nbsp;</label>
+            <button type="button" class="btn-agregar" id="btnAgregarItemEpp">+ Agregar ítem</button>
+          </div>
+        </div>
+        <div id="listaItemsEpp" style="margin-top:10px;"></div>
+      </div>
+
+      <div class="panel">
         <h2>Resumen de stock</h2>
         <p class="ayuda-guardar" style="margin:0 0 12px 0;">El stock actual se calcula automáticamente: cantidad ingresada (compras) menos cantidad entregada a colaboradores. Define un stock mínimo por ítem para saber cuándo hay que comprar más.</p>
         <div class="tabla-wrap">
@@ -4908,6 +4924,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   const CLAVE_EPP = 'kardexEppDB';
   const CLAVE_EPP_STOCK = 'kardexEppStockDB';
   const CLAVE_EPP_MINIMOS = 'kardexEppMinimosDB';
+  const CLAVE_EPP_ITEMS = 'kardexEppItemsDB';
   const CLAVE_DESC_PRODUCTOS = 'descuentosProductosDB';
   const CLAVE_DESCUENTOS = 'descuentosPersonalDB';
   const CLAVE_USUARIOS = 'segsolUsuariosDB';
@@ -12517,7 +12534,87 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   /* ===================================================================
      KARDEX DE ENTREGA DE EPP (ligado a Registro de Personal)
   =================================================================== */
-  const ITEMS_EPP = ['Botas', 'Lentes', 'Polo', 'Pantalón', 'Chaleco', 'Guantes', 'Barbiquejo', 'Casco', 'Sobrelentes', 'Gorra de sol'];
+  // Los ítems de EPP ya no son una lista fija: se pueden agregar o quitar desde "Stock de EPP".
+  // La primera vez que se abre (sin nada guardado todavía) se parte de esta lista base, para no
+  // perder los ítems con los que ya venía trabajando la app.
+  const ITEMS_EPP_POR_DEFECTO = ['Botas', 'Lentes', 'Polo', 'Pantalón', 'Chaleco', 'Guantes', 'Barbiquejo', 'Casco', 'Sobrelentes', 'Gorra de sol'];
+  let ITEMS_EPP = ITEMS_EPP_POR_DEFECTO.slice();
+
+  function cargarItemsEpp() {
+    try {
+      const guardado = localStorage.getItem(CLAVE_EPP_ITEMS);
+      ITEMS_EPP = guardado ? JSON.parse(guardado) : ITEMS_EPP_POR_DEFECTO.slice();
+    } catch (e) {
+      ITEMS_EPP = ITEMS_EPP_POR_DEFECTO.slice();
+      mostrarAvisoStorage();
+    }
+  }
+
+  function guardarItemsEpp() {
+    try {
+      localStorage.setItem(CLAVE_EPP_ITEMS, JSON.stringify(ITEMS_EPP));
+    } catch (e) {
+      mostrarAvisoStorage();
+    }
+    guardarEnNube('eppItems', ITEMS_EPP);
+  }
+
+  // Refresca todo lo que depende de la lista de ítems: los selects donde se elige un ítem, la
+  // tabla de resumen de stock, y el kardex de la persona que esté abierta en ese momento (si hay).
+  function refrescarTodoLoQueUsaItemsEpp() {
+    poblarSelectItemsEpp();
+    poblarSelectItemStock();
+    renderResumenStockEpp();
+    if (document.getElementById('eppHistorialPersona') && document.getElementById('eppHistorialPersona').value) {
+      renderHistorialEpp();
+    }
+  }
+
+  function renderListaItemsEpp() {
+    const cont = document.getElementById('listaItemsEpp');
+    if (!cont) return;
+    if (ITEMS_EPP.length === 0) {
+      cont.innerHTML = '<p class="ayuda-guardar" style="margin:0;">Todavía no agregaste ningún ítem.</p>';
+      return;
+    }
+    cont.innerHTML = ITEMS_EPP.map(function (item) {
+      return `<span class="chip-dia-cerrado">${escaparHtml(item)} <button type="button" class="btn-quitar-item-epp" data-item="${escaparHtml(item)}" title="Quitar">×</button></span>`;
+    }).join('');
+  }
+
+  document.getElementById('btnAgregarItemEpp').addEventListener('click', function () {
+    const input = document.getElementById('nuevoItemEpp');
+    const nombre = input.value.trim();
+    if (!nombre) { alert('Escribe el nombre del ítem o producto.'); return; }
+    if (ITEMS_EPP.some(function (it) { return it.toLowerCase() === nombre.toLowerCase(); })) {
+      alert('Ese ítem ya está en la lista.');
+      return;
+    }
+    ITEMS_EPP.push(nombre);
+    guardarItemsEpp();
+    input.value = '';
+    renderListaItemsEpp();
+    refrescarTodoLoQueUsaItemsEpp();
+  });
+  document.getElementById('nuevoItemEpp').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btnAgregarItemEpp').click(); }
+  });
+  document.getElementById('listaItemsEpp').addEventListener('click', function (e) {
+    const btn = e.target.closest('.btn-quitar-item-epp');
+    if (!btn) return;
+    const item = btn.getAttribute('data-item');
+    const enUso = entregasEpp.some(function (r) { return r.item === item; }) || ingresosEpp.some(function (r) { return r.item === item; });
+    const aviso = enUso
+      ? '"' + item + '" ya tiene entregas o ingresos registrados. Si lo quitas, esos registros ya guardados se conservan, pero el ítem no va a aparecer más en los selects. ¿Quitarlo de la lista de todas formas?'
+      : '¿Quitar "' + item + '" de la lista de ítems de EPP?';
+    if (!confirm(aviso)) return;
+    ITEMS_EPP = ITEMS_EPP.filter(function (it) { return it !== item; });
+    delete stockMinimoEpp[item];
+    guardarItemsEpp();
+    guardarMinimosEpp();
+    renderListaItemsEpp();
+    refrescarTodoLoQueUsaItemsEpp();
+  });
 
   function cargarEpp() {
     try {
@@ -12671,7 +12768,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
       return (r.colaborador || '').trim().toLowerCase() === nombreSeleccionado.trim().toLowerCase();
     });
 
-    // ---- Estado actual: última entrega de cada uno de los 10 ítems de EPP ----
+    // ---- Estado actual: última entrega de cada ítem de EPP registrado ----
     const estadoPorItem = {};
     ITEMS_EPP.forEach(function (it) { estadoPorItem[it] = null; });
     entregasPersona.forEach(function (r) {
@@ -14531,7 +14628,9 @@ https://github.com/nodeca/pako/blob/main/LICENSE
   actualizarSelectHistorial();
 
   cargarEpp();
+  cargarItemsEpp();
   poblarSelectItemsEpp();
+  renderListaItemsEpp();
   renderTablaEpp('');
   actualizarSelectHistorialEpp();
 
@@ -14702,6 +14801,12 @@ https://github.com/nodeca/pako/blob/main/LICENSE
     function () { return stockMinimoEpp; },
     function (v) { stockMinimoEpp = v || {}; },
     function () { renderResumenStockEpp(); }
+  );
+
+  registrarSincronizacion('eppItems', CLAVE_EPP_ITEMS,
+    function () { return ITEMS_EPP; },
+    function (v) { ITEMS_EPP = (v && v.length) ? v : ITEMS_EPP_POR_DEFECTO.slice(); },
+    function () { renderListaItemsEpp(); refrescarTodoLoQueUsaItemsEpp(); }
   );
 
   iniciarSincronizacionNube();
